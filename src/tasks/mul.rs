@@ -27,6 +27,10 @@ pub struct End {
 }
 
 impl End {
+    pub fn new(result: u128) -> Self {
+        Self { result }
+    }
+    
     /// Get the result of the multiplication
     pub fn result(&self) -> u128 {
         self.result
@@ -43,7 +47,7 @@ pub enum MulTask {
 impl MulTask {
     pub fn begin(data: Begin) -> Result<Vec<SchedulerTask>, TaskError> {
         if data.a == 0 || data.b == 0 {
-            Ok(vec![SchedulerTask::Mul(MulTask::End(End { result: 0 }))])
+            Ok(vec![SchedulerTask::Mul(MulTask::End(End::new(0)))])
         } else {
             Ok(vec![SchedulerTask::Mul(MulTask::AddPhase(AddPhase {
                 counter: 0,
@@ -63,9 +67,7 @@ impl MulTask {
                 result: data.result + data.a,
             }))])
         } else {
-            Ok(vec![SchedulerTask::Mul(MulTask::End(End {
-                result: data.result,
-            }))])
+            Ok(vec![SchedulerTask::Mul(MulTask::End(End::new(data.result)))])
         }
     }
 

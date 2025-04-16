@@ -16,6 +16,17 @@ mod tests {
 
         // The Begin task should transition to End task with result 0
         assert!(scheduler.poll().is_ok());
+        
+        // Verify the result is 0
+        if let Some(SchedulerTask::Mul(mul_task)) = scheduler.peek() {
+            if let Some(result) = mul_task.get_result() {
+                assert_eq!(result, 0, "Expected result to be 0");
+            } else {
+                panic!("Expected End task with a result");
+            }
+        } else {
+            panic!("Expected Mul task");
+        }
 
         // The End task will return EmptyStack error when polled
         let result = scheduler.poll();
@@ -35,6 +46,17 @@ mod tests {
 
         // The Begin task should transition to End task with result 0
         assert!(scheduler.poll().is_ok());
+        
+        // Verify the result is 0
+        if let Some(SchedulerTask::Mul(mul_task)) = scheduler.peek() {
+            if let Some(result) = mul_task.get_result() {
+                assert_eq!(result, 0, "Expected result to be 0");
+            } else {
+                panic!("Expected End task with a result");
+            }
+        } else {
+            panic!("Expected Mul task");
+        }
 
         // The End task will return EmptyStack error when polled
         let result = scheduler.poll();
@@ -50,7 +72,10 @@ mod tests {
         let mut scheduler = Scheduler::new();
 
         // Test simple multiplication: 3 * 2 = 6
-        scheduler.push(SchedulerTask::Mul(MulTask::Begin(Begin::new(3, 2))));
+        let a = 3;
+        let b = 2;
+        let expected = a * b;
+        scheduler.push(SchedulerTask::Mul(MulTask::Begin(Begin::new(a, b))));
 
         // First poll: Begin -> AddPhase
         assert!(scheduler.poll().is_ok());
@@ -58,13 +83,24 @@ mod tests {
 
         // Poll until we've done all the AddPhase iterations (counter 0 to b-1)
         // For 3 * 2, we need 2 more polls for AddPhase
-        for _ in 0..2 {
+        for _ in 0..b {
             assert!(scheduler.poll().is_ok());
             assert!(!scheduler.is_empty());
         }
 
         // Final poll: AddPhase -> End
         assert!(scheduler.poll().is_ok());
+        
+        // Check the result
+        if let Some(SchedulerTask::Mul(mul_task)) = scheduler.peek() {
+            if let Some(result) = mul_task.get_result() {
+                assert_eq!(result, expected, "Expected result to be {}", expected);
+            } else {
+                panic!("Expected End task with a result");
+            }
+        } else {
+            panic!("Expected Mul task");
+        }
 
         // The End task will return EmptyStack error when polled
         let result = scheduler.poll();
@@ -82,6 +118,7 @@ mod tests {
         // Test multiplication with larger numbers: 10 * 5 = 50
         let a = 10;
         let b = 5;
+        let expected = a * b;
         scheduler.push(SchedulerTask::Mul(MulTask::Begin(Begin::new(a, b))));
 
         // Step 1: Begin -> AddPhase (counter=0)
@@ -95,6 +132,17 @@ mod tests {
 
         // Final poll: AddPhase (counter=b) -> End
         assert!(scheduler.poll().is_ok());
+        
+        // Check the result
+        if let Some(SchedulerTask::Mul(mul_task)) = scheduler.peek() {
+            if let Some(result) = mul_task.get_result() {
+                assert_eq!(result, expected, "Expected result to be {}", expected);
+            } else {
+                panic!("Expected End task with a result");
+            }
+        } else {
+            panic!("Expected Mul task");
+        }
 
         // The End task will return EmptyStack error when polled
         let result = scheduler.poll();
@@ -182,6 +230,7 @@ mod tests {
         // Test multiplication: 4 * 3 = 12
         let a = 4;
         let b = 3;
+        let expected = a * b;
 
         // Step 1: Start with Begin task
         let begin_task = MulTask::Begin(Begin::new(a, b));
@@ -222,8 +271,9 @@ mod tests {
             // After b iterations, we should have an End task
             if i == b {
                 match &current_tasks[0] {
-                    SchedulerTask::Mul(MulTask::End(_)) => {
+                    SchedulerTask::Mul(MulTask::End(end)) => {
                         // This is correct, we have the End state
+                        assert_eq!(end.result(), expected, "Expected result to be {}", expected);
                     }
                     other => panic!(
                         "Expected End task after {} AddPhase steps, got {:?}",
