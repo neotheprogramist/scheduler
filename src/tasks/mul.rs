@@ -26,6 +26,13 @@ pub struct End {
     result: u128,
 }
 
+impl End {
+    /// Get the result of the multiplication
+    pub fn result(&self) -> u128 {
+        self.result
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub enum MulTask {
     Begin(Begin),
@@ -59,6 +66,14 @@ impl MulTask {
             Ok(vec![SchedulerTask::Mul(MulTask::End(End {
                 result: data.result,
             }))])
+        }
+    }
+
+    /// Get the result if this is an End task, or None otherwise
+    pub fn get_result(&self) -> Option<u128> {
+        match self {
+            MulTask::End(end) => Some(end.result()),
+            _ => None,
         }
     }
 }

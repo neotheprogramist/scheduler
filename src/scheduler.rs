@@ -43,4 +43,9 @@ impl Scheduler {
     pub fn is_empty(&self) -> bool {
         self.stack.is_empty()
     }
+
+    /// Peek at the top task in the stack without removing it
+    pub fn peek(&self) -> Option<&SchedulerTask> {
+        self.stack.last()
+    }
 }
