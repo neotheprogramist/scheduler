@@ -1,91 +1,150 @@
+use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use super::{SchedulerTask, TaskError, TaskTrait};
+use crate::scheduler::Scheduler;
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Begin {
-    a: u128,
-    b: u128,
-}
-impl Begin {
-    pub fn new(a: u128, b: u128) -> Self {
-        Self { a, b }
-    }
+use super::{SchedulerTask, add};
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub enum Mul {
+    #[default]
+    P0,
+    P1,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct AddPhase {
-    counter: u128,
-    a: u128,
-    b: u128,
-    result: u128,
+#[derive(Debug, Decode, Encode)]
+pub struct State {
+    pub x: u8,
+    pub y: u8,
+    pub result: u8,
+    pub counter: u8,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct End {
-    result: u128,
+#[derive(Debug, Decode, Encode)]
+pub struct Args {
+    pub x: u8,
+    pub y: u8,
 }
 
-impl End {
-    pub fn new(result: u128) -> Self {
-        Self { result }
-    }
-    
-    /// Get the result of the multiplication
-    pub fn result(&self) -> u128 {
-        self.result
-    }
+#[derive(Debug, Decode, Encode)]
+pub struct Res {
+    pub result: u8,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub enum MulTask {
-    Begin(Begin),
-    AddPhase(AddPhase),
-    End(End),
-}
-
-impl MulTask {
-    pub fn begin(data: Begin) -> Result<Vec<SchedulerTask>, TaskError> {
-        if data.a == 0 || data.b == 0 {
-            Ok(vec![SchedulerTask::Mul(MulTask::End(End::new(0)))])
-        } else {
-            Ok(vec![SchedulerTask::Mul(MulTask::AddPhase(AddPhase {
-                counter: 0,
-                a: data.a,
-                b: data.b,
-                result: 0,
-            }))])
-        }
-    }
-
-    pub fn add_phase(data: AddPhase) -> Result<Vec<SchedulerTask>, TaskError> {
-        if data.counter < data.b {
-            Ok(vec![SchedulerTask::Mul(MulTask::AddPhase(AddPhase {
-                counter: data.counter + 1,
-                a: data.a,
-                b: data.b,
-                result: data.result + data.a,
-            }))])
-        } else {
-            Ok(vec![SchedulerTask::Mul(MulTask::End(End::new(data.result)))])
-        }
-    }
-
-    /// Get the result if this is an End task, or None otherwise
-    pub fn get_result(&self) -> Option<u128> {
+impl Mul {
+    pub fn execute(&mut self, scheduler: &mut Scheduler) {
         match self {
-            MulTask::End(end) => Some(end.result()),
-            _ => None,
+            Mul::P0 => self.p0(scheduler),
+            Mul::P1 => self.p1(scheduler),
         }
     }
-}
 
-impl TaskTrait for MulTask {
-    fn poll(self) -> Result<Vec<SchedulerTask>, TaskError> {
-        match self {
-            MulTask::Begin(data) => MulTask::begin(data),
-            MulTask::AddPhase(data) => MulTask::add_phase(data),
-            _ => Err(TaskError::EmptyStack),
+    pub fn p0(&mut self, scheduler: &mut Scheduler) {
+        println!("execute: Mul p0");
+        let reversed_data: Vec<u8> = scheduler.data_stack.iter().rev().cloned().collect();
+        let (args, len): (Args, usize) =
+            bincode::decode_from_slice(&reversed_data, bincode::config::standard()).unwrap();
+        scheduler
+            .data_stack
+            .truncate(scheduler.data_stack.len() - len);
+
+        println!("x: {}", args.x);
+        println!("y: {}", args.y);
+        let state = State {
+            x: args.x,
+            y: args.y,
+            result: 0,
+            counter: 0,
+        };
+
+        if state.counter < state.y {
+            scheduler.call_stack.extend(
+                vec![
+                    SchedulerTask::Add(add::Add::P0),
+                    SchedulerTask::Mul(Mul::P1),
+                ]
+                .into_iter()
+                .rev(),
+            );
+            let add_args = add::Args {
+                x: state.result,
+                y: state.x,
+            };
+            scheduler.data_stack.extend(
+                vec![
+                    bincode::encode_to_vec(add_args, bincode::config::standard()).unwrap(),
+                    bincode::encode_to_vec(state, bincode::config::standard()).unwrap(),
+                ]
+                .iter()
+                .flatten()
+                .rev(),
+            );
+        } else {
+            let res = Res {
+                result: state.result,
+            };
+            scheduler.data_stack.extend(
+                vec![bincode::encode_to_vec(res, bincode::config::standard()).unwrap()]
+                    .iter()
+                    .flatten()
+                    .rev(),
+            );
+        }
+    }
+
+    pub fn p1(&mut self, scheduler: &mut Scheduler) {
+        println!("execute: Mul p1");
+        let reversed_data: Vec<u8> = scheduler.data_stack.iter().rev().cloned().collect();
+        let (add_res, len): (add::Res, usize) =
+            bincode::decode_from_slice(&reversed_data, bincode::config::standard()).unwrap();
+        scheduler
+            .data_stack
+            .truncate(scheduler.data_stack.len() - len);
+
+        let reversed_data: Vec<u8> = scheduler.data_stack.iter().rev().cloned().collect();
+        let (mut state, len): (State, usize) =
+            bincode::decode_from_slice(&reversed_data, bincode::config::standard()).unwrap();
+        scheduler
+            .data_stack
+            .truncate(scheduler.data_stack.len() - len);
+
+        println!("add result: {:?}", add_res);
+        println!("state: {:?}", state);
+
+        state.result = add_res.result;
+        state.counter += 1;
+        if state.counter < state.y {
+            scheduler.call_stack.extend(
+                vec![
+                    SchedulerTask::Add(add::Add::P0),
+                    SchedulerTask::Mul(Mul::P1),
+                ]
+                .into_iter()
+                .rev(),
+            );
+            let add_args = add::Args {
+                x: state.result,
+                y: state.x,
+            };
+            scheduler.data_stack.extend(
+                vec![
+                    bincode::encode_to_vec(add_args, bincode::config::standard()).unwrap(),
+                    bincode::encode_to_vec(state, bincode::config::standard()).unwrap(),
+                ]
+                .iter()
+                .flatten()
+                .rev(),
+            );
+        } else {
+            let res = Res {
+                result: state.result,
+            };
+            scheduler.data_stack.extend(
+                vec![bincode::encode_to_vec(res, bincode::config::standard()).unwrap()]
+                    .iter()
+                    .flatten()
+                    .rev(),
+            );
         }
     }
 }

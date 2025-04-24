@@ -1,35 +1,18 @@
-use add::AddTask;
-use mul::MulTask;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
+use crate::scheduler::Scheduler;
 
 pub mod add;
 pub mod mul;
 
-/// Trait defining the behavior of an arithmetic task
-pub trait TaskTrait {
-    /// Execute one step of the task and return any new tasks that need to be scheduled
-    fn poll(self: Self) -> Result<Vec<SchedulerTask>, TaskError>;
-}
-
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug)]
 pub enum SchedulerTask {
-    Add(AddTask),
-    Mul(MulTask),
+    Add(add::Add),
+    Mul(mul::Mul),
 }
-
-impl TaskTrait for SchedulerTask {
-    fn poll(self: Self) -> Result<Vec<SchedulerTask>, TaskError> {
+impl SchedulerTask {
+    pub fn execute(&mut self, scheduler: &mut Scheduler) {
         match self {
-            SchedulerTask::Add(task) => task.poll(),
-            SchedulerTask::Mul(task) => task.poll(),
+            SchedulerTask::Add(task) => task.execute(scheduler),
+            SchedulerTask::Mul(task) => task.execute(scheduler),
         }
     }
-}
-
-/// Represents errors that can occur during task execution
-#[derive(Debug, Error)]
-pub enum TaskError {
-    #[error("empty stack")]
-    EmptyStack,
 }

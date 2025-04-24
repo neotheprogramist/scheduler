@@ -1,61 +1,52 @@
+use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use super::{SchedulerTask, TaskError, TaskTrait};
+use crate::scheduler::Scheduler;
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Begin {
-    a: u128,
-    b: u128,
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub enum Add {
+    #[default]
+    P0,
 }
 
-impl Begin {
-    pub fn new(a: u128, b: u128) -> Self {
-        Self { a, b }
-    }
+#[derive(Debug, Decode, Encode)]
+pub struct Args {
+    pub x: u8,
+    pub y: u8,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct End {
-    result: u128,
+#[derive(Debug, Decode, Encode)]
+pub struct Res {
+    pub result: u8,
 }
 
-impl End {
-    pub fn new(result: u128) -> Self {
-        Self { result }
-    }
-    
-    /// Get the result of the addition
-    pub fn result(&self) -> u128 {
-        self.result
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub enum AddTask {
-    Begin(Begin),
-    End(End),
-}
-
-impl AddTask {
-    pub fn begin(data: Begin) -> Result<Vec<SchedulerTask>, TaskError> {
-        let result = data.a + data.b;
-        Ok(vec![SchedulerTask::Add(AddTask::End(End { result }))])
-    }
-    
-    /// Get the result if this is an End task, or None otherwise
-    pub fn get_result(&self) -> Option<u128> {
+impl Add {
+    pub fn execute(&mut self, scheduler: &mut Scheduler) {
+        println!("execute: Add");
         match self {
-            AddTask::End(end) => Some(end.result()),
-            _ => None,
+            Add::P0 => self.p0(scheduler),
         }
     }
-}
 
-impl TaskTrait for AddTask {
-    fn poll(self) -> Result<Vec<SchedulerTask>, TaskError> {
-        match self {
-            AddTask::Begin(data) => AddTask::begin(data),
-            _ => Err(TaskError::EmptyStack),
-        }
+    pub fn p0(&mut self, scheduler: &mut Scheduler) {
+        let reversed_data: Vec<u8> = scheduler.data_stack.iter().rev().cloned().collect();
+        let (args, len): (Args, usize) =
+            bincode::decode_from_slice(&reversed_data, bincode::config::standard()).unwrap();
+        scheduler
+            .data_stack
+            .truncate(scheduler.data_stack.len() - len);
+
+        println!("add args: {:?}", args);
+
+        let res = Res {
+            result: args.x + args.y,
+        };
+
+        scheduler.data_stack.extend(
+            bincode::encode_to_vec(res, bincode::config::standard())
+                .unwrap()
+                .into_iter()
+                .rev(),
+        );
     }
 }

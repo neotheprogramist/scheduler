@@ -1,51 +1,42 @@
-use crate::tasks::{SchedulerTask, TaskError, TaskTrait};
+use thiserror::Error;
 
-/// A scheduler that manages arithmetic tasks
+use crate::tasks::SchedulerTask;
+
+/// Represents errors that can occur during task execution
+#[derive(Debug, Error)]
+pub enum TaskError {
+    #[error("empty stack")]
+    EmptyStack,
+}
+
+#[derive(Default)]
 pub struct Scheduler {
-    stack: Vec<SchedulerTask>,
-}
-
-impl std::fmt::Debug for Scheduler {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Scheduler")
-            .field("stack_size", &self.stack.len())
-            .finish()
-    }
-}
-
-impl Default for Scheduler {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub call_stack: Vec<SchedulerTask>,
+    pub data_stack: Vec<u8>,
 }
 
 impl Scheduler {
-    /// Create a new empty scheduler
     pub fn new() -> Self {
-        Self { stack: Vec::new() }
+        Self::default()
     }
 
-    /// Push a new task onto the scheduler's stack
-    pub fn push(&mut self, task: SchedulerTask) {
-        self.stack.push(task);
+    pub fn push_call(&mut self, task: SchedulerTask) {
+        self.call_stack.push(task);
     }
 
-    /// Execute the next task in the stack
-    /// Returns Ok(()) if successful, or an error if the stack is empty or task execution fails
+    pub fn extend_data(&mut self, data: &[u8]) {
+        self.data_stack.extend(data.into_iter().rev());
+    }
+
     pub fn poll(&mut self) -> Result<(), TaskError> {
-        let task = self.stack.pop().ok_or(TaskError::EmptyStack)?;
-        let new_tasks = task.poll()?;
-        self.stack.extend(new_tasks.into_iter().rev());
+        println!("Call Stack: {:?}", self.call_stack);
+        println!("Data Stack: {:?}", self.data_stack);
+        let mut task = self.call_stack.pop().ok_or(TaskError::EmptyStack)?;
+        task.execute(self);
         Ok(())
     }
 
-    /// Check if there are any tasks remaining in the stack
     pub fn is_empty(&self) -> bool {
-        self.stack.is_empty()
-    }
-
-    /// Peek at the top task in the stack without removing it
-    pub fn peek(&self) -> Option<&SchedulerTask> {
-        self.stack.last()
+        self.call_stack.is_empty()
     }
 }

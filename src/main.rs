@@ -1,48 +1,29 @@
 use scheduler::{
     scheduler::Scheduler,
-    tasks::{
-        SchedulerTask,
-        mul::{Begin, MulTask},
-    },
+    tasks::{SchedulerTask, mul},
 };
 
 fn main() {
-    println!("Hello World");
-
-    // Create a scheduler and push a multiplication task (3 * 4)
-    let a = 3;
-    let b = 4;
     let mut scheduler = Scheduler::new();
-    scheduler.push(SchedulerTask::Mul(MulTask::Begin(Begin::new(a, b))));
+    scheduler.extend_data(
+        &bincode::encode_to_vec(mul::Args { x: 2, y: 5 }, bincode::config::standard()).unwrap(),
+    );
+    scheduler.push_call(SchedulerTask::Mul(mul::Mul::default()));
 
-    // Poll the scheduler until we reach the final state (End)
-    // We execute each computational step
     let mut steps = 0;
-
-    // Process tasks until we're at the End task or we encounter an error
     while let Ok(()) = scheduler.poll() {
-        steps += 1;
         println!("Step {}: Task processed successfully", steps);
-
-        // Check if we're at the End task
-        if let Some(SchedulerTask::Mul(mul_task)) = scheduler.peek() {
-            if let Some(result) = mul_task.get_result() {
-                println!("Found result: {} * {} = {}", a, b, result);
-                break;
-            }
-        }
+        steps += 1;
     }
 
     println!("Computation completed in {} steps", steps);
 
-    if scheduler.is_empty() {
-        println!("All tasks processed!");
-    } else {
-        // Try to extract the result one more time
-        if let Some(SchedulerTask::Mul(mul_task)) = scheduler.peek() {
-            if let Some(result) = mul_task.get_result() {
-                println!("Final result: {}", result);
-            }
-        }
-    }
+    let reversed_data: Vec<u8> = scheduler.data_stack.iter().rev().cloned().collect();
+    let (res, len): (mul::Res, usize) =
+        bincode::decode_from_slice(&reversed_data, bincode::config::standard()).unwrap();
+    scheduler
+        .data_stack
+        .truncate(scheduler.data_stack.len() - len);
+
+    println!("Computation result: {:?}", res);
 }
