@@ -1,15 +1,25 @@
 use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use crate::scheduler::Scheduler;
-
-use super::{SchedulerTask, add};
+use crate::{
+    scheduler::{Scheduler, SchedulerTask},
+    tasks::add::{self, Add},
+};
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub enum Mul {
     #[default]
     P0,
     P1,
+}
+#[typetag::serde]
+impl SchedulerTask for Mul {
+    fn execute(&mut self, scheduler: &mut Scheduler) {
+        match self {
+            Mul::P0 => self.p0(scheduler),
+            Mul::P1 => self.p1(scheduler),
+        }
+    }
 }
 
 #[derive(Debug, Decode, Encode)]
@@ -58,14 +68,11 @@ impl Mul {
         };
 
         if state.counter < state.y {
-            scheduler.call_stack.extend(
-                vec![
-                    SchedulerTask::Add(add::Add::P0),
-                    SchedulerTask::Mul(Mul::P1),
-                ]
-                .into_iter()
-                .rev(),
-            );
+            let add_task: Box<dyn SchedulerTask> = Box::new(Add::default());
+            let mul_task: Box<dyn SchedulerTask> = Box::new(Mul::P1);
+            scheduler
+                .call_stack
+                .extend(vec![add_task, mul_task].into_iter().rev());
             let add_args = add::Args {
                 x: state.result,
                 y: state.x,
@@ -114,14 +121,11 @@ impl Mul {
         state.result = add_res.result;
         state.counter += 1;
         if state.counter < state.y {
-            scheduler.call_stack.extend(
-                vec![
-                    SchedulerTask::Add(add::Add::P0),
-                    SchedulerTask::Mul(Mul::P1),
-                ]
-                .into_iter()
-                .rev(),
-            );
+            let add_task: Box<dyn SchedulerTask> = Box::new(Add::default());
+            let mul_task: Box<dyn SchedulerTask> = Box::new(Mul::P1);
+            scheduler
+                .call_stack
+                .extend(vec![add_task, mul_task].into_iter().rev());
             let add_args = add::Args {
                 x: state.result,
                 y: state.x,

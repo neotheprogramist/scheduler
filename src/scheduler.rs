@@ -1,6 +1,10 @@
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::tasks::SchedulerTask;
+#[typetag::serde(tag = "type")]
+pub trait SchedulerTask {
+    fn execute(&mut self, scheduler: &mut Scheduler);
+}
 
 /// Represents errors that can occur during task execution
 #[derive(Debug, Error)]
@@ -9,9 +13,9 @@ pub enum TaskError {
     EmptyStack,
 }
 
-#[derive(Default)]
+#[derive(Default, Deserialize, Serialize)]
 pub struct Scheduler {
-    pub call_stack: Vec<SchedulerTask>,
+    pub call_stack: Vec<Box<dyn SchedulerTask>>,
     pub data_stack: Vec<u8>,
 }
 
@@ -20,7 +24,7 @@ impl Scheduler {
         Self::default()
     }
 
-    pub fn push_call(&mut self, task: SchedulerTask) {
+    pub fn push_call(&mut self, task: Box<dyn SchedulerTask>) {
         self.call_stack.push(task);
     }
 
@@ -28,8 +32,7 @@ impl Scheduler {
         self.data_stack.extend(data.into_iter().rev());
     }
 
-    pub fn poll(&mut self) -> Result<(), TaskError> {
-        println!("Call Stack: {:?}", self.call_stack);
+    pub fn execute(&mut self) -> Result<(), TaskError> {
         println!("Data Stack: {:?}", self.data_stack);
         let mut task = self.call_stack.pop().ok_or(TaskError::EmptyStack)?;
         task.execute(self);

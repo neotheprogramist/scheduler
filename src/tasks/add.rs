@@ -1,12 +1,20 @@
 use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use crate::scheduler::Scheduler;
+use crate::scheduler::{Scheduler, SchedulerTask};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub enum Add {
     #[default]
     P0,
+}
+#[typetag::serde]
+impl SchedulerTask for Add {
+    fn execute(&mut self, scheduler: &mut Scheduler) {
+        match self {
+            Add::P0 => self.p0(scheduler),
+        }
+    }
 }
 
 #[derive(Debug, Decode, Encode)]
@@ -21,13 +29,6 @@ pub struct Res {
 }
 
 impl Add {
-    pub fn execute(&mut self, scheduler: &mut Scheduler) {
-        println!("execute: Add");
-        match self {
-            Add::P0 => self.p0(scheduler),
-        }
-    }
-
     pub fn p0(&mut self, scheduler: &mut Scheduler) {
         let reversed_data: Vec<u8> = scheduler.data_stack.iter().rev().cloned().collect();
         let (args, len): (Args, usize) =

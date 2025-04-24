@@ -1,6 +1,6 @@
 use scheduler::{
-    scheduler::Scheduler,
-    tasks::{SchedulerTask, mul},
+    scheduler::{Scheduler, SchedulerTask},
+    tasks::mul,
 };
 
 fn main() {
@@ -8,10 +8,11 @@ fn main() {
     scheduler.extend_data(
         &bincode::encode_to_vec(mul::Args { x: 2, y: 5 }, bincode::config::standard()).unwrap(),
     );
-    scheduler.push_call(SchedulerTask::Mul(mul::Mul::default()));
+    let mul_task: Box<dyn SchedulerTask> = Box::new(mul::Mul::default());
+    scheduler.push_call(mul_task);
 
     let mut steps = 0;
-    while let Ok(()) = scheduler.poll() {
+    while let Ok(()) = scheduler.execute() {
         println!("Step {}: Task processed successfully", steps);
         steps += 1;
     }
