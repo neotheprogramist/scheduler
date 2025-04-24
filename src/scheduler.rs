@@ -29,7 +29,7 @@ impl Scheduler {
     }
 
     pub fn extend_data(&mut self, data: &[u8]) {
-        self.data_stack.extend(data.into_iter().rev());
+        self.data_stack.extend(data.iter().rev());
     }
 
     pub fn execute(&mut self) -> Result<(), TaskError> {

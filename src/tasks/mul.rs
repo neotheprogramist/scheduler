@@ -78,10 +78,8 @@ impl Mul {
                 y: state.x,
             };
             scheduler.data_stack.extend(
-                vec![
-                    bincode::encode_to_vec(add_args, bincode::config::standard()).unwrap(),
-                    bincode::encode_to_vec(state, bincode::config::standard()).unwrap(),
-                ]
+                [bincode::encode_to_vec(add_args, bincode::config::standard()).unwrap(),
+                    bincode::encode_to_vec(state, bincode::config::standard()).unwrap()]
                 .iter()
                 .flatten()
                 .rev(),
@@ -91,7 +89,7 @@ impl Mul {
                 result: state.result,
             };
             scheduler.data_stack.extend(
-                vec![bincode::encode_to_vec(res, bincode::config::standard()).unwrap()]
+                [bincode::encode_to_vec(res, bincode::config::standard()).unwrap()]
                     .iter()
                     .flatten()
                     .rev(),
@@ -131,10 +129,8 @@ impl Mul {
                 y: state.x,
             };
             scheduler.data_stack.extend(
-                vec![
-                    bincode::encode_to_vec(add_args, bincode::config::standard()).unwrap(),
-                    bincode::encode_to_vec(state, bincode::config::standard()).unwrap(),
-                ]
+                [bincode::encode_to_vec(add_args, bincode::config::standard()).unwrap(),
+                    bincode::encode_to_vec(state, bincode::config::standard()).unwrap()]
                 .iter()
                 .flatten()
                 .rev(),
@@ -144,7 +140,7 @@ impl Mul {
                 result: state.result,
             };
             scheduler.data_stack.extend(
-                vec![bincode::encode_to_vec(res, bincode::config::standard()).unwrap()]
+                [bincode::encode_to_vec(res, bincode::config::standard()).unwrap()]
                     .iter()
                     .flatten()
                     .rev(),
