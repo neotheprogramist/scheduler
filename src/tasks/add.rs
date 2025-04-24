@@ -2,6 +2,7 @@ use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::scheduler::{Scheduler, SchedulerTask};
+use crate::codec::stack;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub enum Add {
@@ -30,24 +31,16 @@ pub struct Res {
 
 impl Add {
     pub fn p0(&mut self, scheduler: &mut Scheduler) {
-        let reversed_data: Vec<u8> = scheduler.data_stack.iter().rev().cloned().collect();
-        let (args, len): (Args, usize) =
-            bincode::decode_from_slice(&reversed_data, bincode::config::standard()).unwrap();
-        scheduler
-            .data_stack
-            .truncate(scheduler.data_stack.len() - len);
-
+        // Decode arguments from data stack
+        let args: Args = stack::decode(scheduler);
         println!("add args: {:?}", args);
 
+        // Calculate result
         let res = Res {
             result: args.x + args.y,
         };
-
-        scheduler.data_stack.extend(
-            bincode::encode_to_vec(res, bincode::config::standard())
-                .unwrap()
-                .into_iter()
-                .rev(),
-        );
+        
+        // Push result to data stack
+        stack::encode(scheduler, res);
     }
 }
