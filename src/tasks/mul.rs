@@ -2,9 +2,9 @@ use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    codec::stack,
     scheduler::{Scheduler, SchedulerTask},
     tasks::add::{self, Add},
-    codec::stack,
 };
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -45,12 +45,12 @@ pub struct Res {
 impl Mul {
     pub fn p0(&mut self, scheduler: &mut Scheduler) {
         println!("execute: Mul p0");
-        
+
         // Decode arguments from data stack
         let args: Args = stack::decode(scheduler);
         println!("x: {}", args.x);
         println!("y: {}", args.y);
-        
+
         let state = State {
             x: args.x,
             y: args.y,
@@ -62,18 +62,19 @@ impl Mul {
             // Create tasks
             let add_task: Box<dyn SchedulerTask> = Box::new(Add::default());
             let mul_task: Box<dyn SchedulerTask> = Box::new(Mul::P1);
-            
+
             // Schedule tasks (Add then Mul)
             scheduler.schedule_tasks(vec![add_task, mul_task]);
-            
+
             // Prepare arguments and push to stack
             let add_args = add::Args {
                 x: state.result,
                 y: state.x,
             };
-            
+
             // Encode separately and push to stack
-            let add_args_encoded = bincode::encode_to_vec(add_args, bincode::config::standard()).unwrap();
+            let add_args_encoded =
+                bincode::encode_to_vec(add_args, bincode::config::standard()).unwrap();
             let state_encoded = bincode::encode_to_vec(state, bincode::config::standard()).unwrap();
             scheduler.push_multiple_data(vec![add_args_encoded, state_encoded]);
         } else {
@@ -87,7 +88,7 @@ impl Mul {
 
     pub fn p1(&mut self, scheduler: &mut Scheduler) {
         println!("execute: Mul p1");
-        
+
         // Decode Add result and state
         let add_res: add::Res = stack::decode(scheduler);
         let mut state: State = stack::decode(scheduler);
@@ -98,23 +99,24 @@ impl Mul {
         // Update state
         state.result = add_res.result;
         state.counter += 1;
-        
+
         if state.counter < state.y {
             // Create tasks
             let add_task: Box<dyn SchedulerTask> = Box::new(Add::default());
             let mul_task: Box<dyn SchedulerTask> = Box::new(Mul::P1);
-            
+
             // Schedule tasks (Add then Mul)
             scheduler.schedule_tasks(vec![add_task, mul_task]);
-            
+
             // Prepare arguments and push to stack
             let add_args = add::Args {
                 x: state.result,
                 y: state.x,
             };
-            
+
             // Encode separately and push to stack
-            let add_args_encoded = bincode::encode_to_vec(add_args, bincode::config::standard()).unwrap();
+            let add_args_encoded =
+                bincode::encode_to_vec(add_args, bincode::config::standard()).unwrap();
             let state_encoded = bincode::encode_to_vec(state, bincode::config::standard()).unwrap();
             scheduler.push_multiple_data(vec![add_args_encoded, state_encoded]);
         } else {

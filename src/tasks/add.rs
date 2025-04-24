@@ -1,8 +1,8 @@
 use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use crate::scheduler::{Scheduler, SchedulerTask};
 use crate::codec::stack;
+use crate::scheduler::{Scheduler, SchedulerTask};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub enum Add {
@@ -39,7 +39,7 @@ impl Add {
         let res = Res {
             result: args.x + args.y,
         };
-        
+
         // Push result to data stack
         stack::encode(scheduler, res);
     }

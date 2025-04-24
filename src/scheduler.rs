@@ -42,22 +42,22 @@ impl Scheduler {
     pub fn is_empty(&self) -> bool {
         self.call_stack.is_empty()
     }
-    
+
     // Helper method to get reversed data for decoding
     pub fn get_reversed_data(&self) -> Vec<u8> {
         self.data_stack.iter().rev().cloned().collect()
     }
-    
+
     // Helper method to truncate stack after reading
     pub fn truncate_stack(&mut self, len: usize) {
         self.data_stack.truncate(self.data_stack.len() - len);
     }
-    
+
     // Schedule multiple tasks at once (in reverse order)
     pub fn schedule_tasks(&mut self, tasks: Vec<Box<dyn SchedulerTask>>) {
         self.call_stack.extend(tasks.into_iter().rev());
     }
-    
+
     // Push multiple byte vectors to the data stack (in reverse order)
     pub fn push_multiple_data(&mut self, data_items: Vec<Vec<u8>>) {
         self.data_stack.extend(data_items.iter().flatten().rev());
