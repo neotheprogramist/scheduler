@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 bincode = "2.0.1"
 bytemuck = "1.22.0"
+flexbuffers = "25.2.10"
 serde = { version = "1.0.219", features = ["derive"] }
 thiserror = "2.0.12"
 typetag = "0.2.20"
