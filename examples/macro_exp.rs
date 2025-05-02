@@ -31,18 +31,6 @@ pub struct ExpState {
     pub result: u8,
 }
 
-/// Helper function to multiply x by itself y times
-fn power(x: u8, y: u8) -> u8 {
-    if y == 0 {
-        return 1;
-    }
-    let mut result = 1_u8;
-    for _ in 0..y {
-        result = result.saturating_mul(x);
-    }
-    result
-}
-
 // Use the phased_task macro to define our task with much less boilerplate
 phased_task! {
     /// A task that performs exponentiation (x^y).

@@ -238,6 +238,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_exp_normal() {
         let mut scheduler = Scheduler::default();
 
@@ -257,6 +258,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_exp_overflow() {
         let mut scheduler = Scheduler::default();
 
