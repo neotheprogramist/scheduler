@@ -1,6 +1,12 @@
+//! Multiplication task for the scheduler.
+//!
+//! This task demonstrates a complex operation that uses multiple phases and
+//! depends on other tasks. It implements multiplication by repeated addition.
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    error::Result,
     scheduler::{Scheduler, SchedulerTask},
     tasks::{
         TaskArgs, TaskResult,
@@ -8,11 +14,23 @@ use crate::{
     },
 };
 
-/// A task that performs multiplication by repeated addition
+/// A task that performs multiplication by repeated addition.
 ///
 /// This task demonstrates how to implement a complex operation
 /// by breaking it down into multiple phases (P0, P1) and
 /// using other tasks (Add) as building blocks.
+///
+/// # Examples
+///
+/// ```
+/// use scheduler::{Scheduler, tasks::{Mul, MulArgs}};
+///
+/// let mut scheduler = Scheduler::default();
+/// let args = MulArgs { x: 5, y: 3 };
+/// scheduler.push_data(&args).unwrap();
+/// scheduler.push_call(Box::new(Mul::new())).unwrap();
+/// scheduler.execute_all().unwrap();
+/// ```
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub enum Mul {
     #[default]
@@ -24,70 +42,85 @@ pub enum Mul {
 impl SchedulerTask for Mul {
     fn execute(&mut self, scheduler: &mut Scheduler) {
         match self {
-            Mul::P0 => self.p0(scheduler),
-            Mul::P1 => self.p1(scheduler),
+            Mul::P0 => {
+                if let Err(err) = self.p0(scheduler) {
+                    eprintln!("Mul P0 phase failed: {:?}", err);
+                }
+            }
+            Mul::P1 => {
+                if let Err(err) = self.p1(scheduler) {
+                    eprintln!("Mul P1 phase failed: {:?}", err);
+                }
+            }
         }
     }
 }
 
-/// The internal state for the Mul task
+/// The internal state for the Mul task.
 ///
-/// This state is passed between phases of the task
+/// This state is passed between phases of the task.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct State {
-    pub x: u8,       // First operand
-    pub y: u8,       // Second operand
-    pub result: u8,  // Running result
-    pub counter: u8, // Number of additions completed
+    /// First operand
+    pub x: u8,
+    /// Second operand
+    pub y: u8,
+    /// Running result
+    pub result: u8,
+    /// Number of additions completed
+    pub counter: u8,
 }
 
-/// Arguments for the Mul task
+/// Arguments for the Mul task.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Args {
+    /// First operand
     pub x: u8,
+    /// Second operand (number of times to add x)
     pub y: u8,
 }
 
 impl TaskArgs for Args {}
 
-/// Result of the Mul task
+/// Result of the Mul task.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Res {
+    /// The product of x and y
     pub result: u8,
 }
 
 impl TaskResult for Res {}
 
 impl Mul {
-    /// Create a new multiplication task
+    /// Create a new multiplication task.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use scheduler::tasks::Mul;
+    ///
+    /// let mul_task = Mul::new();
+    /// ```
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// P0 phase: Initial multiplication phase
+    /// P0 phase: Initial multiplication phase.
     ///
     /// This phase:
     /// 1. Decodes the arguments
     /// 2. Sets up the initial state
     /// 3. Determines if we need to schedule additional tasks
     /// 4. Either returns the result (if y is 0) or schedules more tasks
-    pub fn p0(&mut self, scheduler: &mut Scheduler) {
+    fn p0(&mut self, scheduler: &mut Scheduler) -> Result<()> {
         // Decode arguments from data stack
-        let args: Args = match scheduler.pop_data() {
-            Ok(args) => args,
-            Err(e) => {
-                eprintln!("Error decoding multiplication arguments: {:?}", e);
-                return;
-            }
-        };
+        let args: Args = scheduler.pop_data()?;
 
         // Special case: if y is 0, result is 0
         if args.y == 0 {
             let res = Res { result: 0 };
-            if let Err(e) = scheduler.push_data(&res) {
-                eprintln!("Error encoding multiplication result: {:?}", e);
-            }
-            return;
+            scheduler.push_data(&res)?;
+            return Ok(());
         }
 
         // Set up initial state
@@ -105,10 +138,7 @@ impl Mul {
             let mul_task: Box<dyn SchedulerTask> = Box::new(Mul::P1);
 
             // Schedule tasks (Add then Mul)
-            if let Err(e) = scheduler.schedule_tasks(vec![add_task, mul_task]) {
-                eprintln!("Error scheduling tasks: {:?}", e);
-                return;
-            }
+            scheduler.schedule_tasks(vec![add_task, mul_task])?;
 
             // Prepare arguments for the Add task
             let add_args = add::Args {
@@ -117,49 +147,30 @@ impl Mul {
             };
 
             // Push state and add args to the stack
-            if let Err(e) = scheduler.push_data(&state) {
-                eprintln!("Error encoding state: {:?}", e);
-                return;
-            }
-
-            if let Err(e) = scheduler.push_data(&add_args) {
-                eprintln!("Error encoding add args: {:?}", e);
-            }
+            scheduler.push_data(&state)?;
+            scheduler.push_data(&add_args)?;
         } else {
             // Return final result (should be 0 since counter is 0)
             let res = Res {
                 result: state.result,
             };
-            if let Err(e) = scheduler.push_data(&res) {
-                eprintln!("Error encoding result: {:?}", e);
-            }
+            scheduler.push_data(&res)?;
         }
+
+        Ok(())
     }
 
-    /// P1 phase: Subsequent multiplication phase
+    /// P1 phase: Subsequent multiplication phase.
     ///
     /// This phase:
     /// 1. Decodes the Add result and previous state
     /// 2. Updates the state with the new result
     /// 3. Increments the counter
     /// 4. Either schedules more tasks or returns the final result
-    pub fn p1(&mut self, scheduler: &mut Scheduler) {
+    fn p1(&mut self, scheduler: &mut Scheduler) -> Result<()> {
         // Decode Add result and state
-        let add_res: add::Res = match scheduler.pop_data() {
-            Ok(res) => res,
-            Err(e) => {
-                eprintln!("Error decoding add result: {:?}", e);
-                return;
-            }
-        };
-
-        let mut state: State = match scheduler.pop_data() {
-            Ok(state) => state,
-            Err(e) => {
-                eprintln!("Error decoding state: {:?}", e);
-                return;
-            }
-        };
+        let add_res: add::Res = scheduler.pop_data()?;
+        let mut state: State = scheduler.pop_data()?;
 
         // Update state with the result from Add
         state.result = add_res.result;
@@ -172,10 +183,7 @@ impl Mul {
             let mul_task: Box<dyn SchedulerTask> = Box::new(Mul::P1);
 
             // Schedule tasks (Add then Mul)
-            if let Err(e) = scheduler.schedule_tasks(vec![add_task, mul_task]) {
-                eprintln!("Error scheduling tasks: {:?}", e);
-                return;
-            }
+            scheduler.schedule_tasks(vec![add_task, mul_task])?;
 
             // Prepare arguments for the Add task
             let add_args = add::Args {
@@ -184,22 +192,77 @@ impl Mul {
             };
 
             // Push state and add args to the stack
-            if let Err(e) = scheduler.push_data(&state) {
-                eprintln!("Error encoding state: {:?}", e);
-                return;
-            }
-
-            if let Err(e) = scheduler.push_data(&add_args) {
-                eprintln!("Error encoding add args: {:?}", e);
-            }
+            scheduler.push_data(&state)?;
+            scheduler.push_data(&add_args)?;
         } else {
             // Return final result
             let res = Res {
                 result: state.result,
             };
-            if let Err(e) = scheduler.push_data(&res) {
-                eprintln!("Error encoding result: {:?}", e);
-            }
+            scheduler.push_data(&res)?;
         }
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scheduler::Scheduler;
+
+    #[test]
+    fn test_mul_zero() {
+        let mut scheduler = Scheduler::default();
+
+        // Set up arguments with y=0
+        let args = Args { x: 5, y: 0 };
+        scheduler.push_data(&args).unwrap();
+
+        // Execute task
+        let mut task = Mul::new();
+        task.execute(&mut scheduler);
+
+        // Check result (should be 0)
+        let res: Res = scheduler.pop_data().unwrap();
+        assert_eq!(res.result, 0);
+    }
+
+    #[test]
+    fn test_mul_normal() {
+        let mut scheduler = Scheduler::default();
+
+        // Set up arguments
+        let args = Args { x: 5, y: 3 };
+        scheduler.push_data(&args).unwrap();
+
+        // Push tasks
+        scheduler.push_call(Box::new(Mul::new())).unwrap();
+
+        // Execute all tasks
+        scheduler.execute_all().unwrap();
+
+        // Check result
+        let res: Res = scheduler.pop_data().unwrap();
+        assert_eq!(res.result, 15);
+    }
+
+    #[test]
+    fn test_mul_overflow() {
+        let mut scheduler = Scheduler::default();
+
+        // Set up arguments that would overflow u8
+        let args = Args { x: 100, y: 3 };
+        scheduler.push_data(&args).unwrap();
+
+        // Push tasks
+        scheduler.push_call(Box::new(Mul::new())).unwrap();
+
+        // Execute all tasks
+        scheduler.execute_all().unwrap();
+
+        // Check result (should be saturated at 255)
+        let res: Res = scheduler.pop_data().unwrap();
+        assert_eq!(res.result, 255);
     }
 }
