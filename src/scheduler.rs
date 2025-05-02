@@ -317,6 +317,12 @@ impl Scheduler {
     }
 }
 
+impl<const CAPACITY: usize> Default for SchedulerGeneric<CAPACITY> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const CAPACITY: usize> SchedulerGeneric<CAPACITY> {
     /// Creates a new scheduler with empty call and data stacks.
     pub fn new() -> Self {

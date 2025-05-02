@@ -71,7 +71,7 @@ impl<const CAPACITY: usize> BidirectionalStack<CAPACITY> {
     /// Takes into account the extra byte needed to store the length.
     fn has_capacity_for(&self, data_size: usize) -> bool {
         // Need space for data + 1 byte to store length
-        self.available_capacity() >= data_size + 1
+        self.available_capacity() > data_size
     }
 
     /// Pushes data to the front of the stack.
