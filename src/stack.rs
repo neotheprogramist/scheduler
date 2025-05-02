@@ -8,6 +8,7 @@ pub enum StackError {
 
 /// A bidirectional stack that allows pushing and popping from both ends
 /// within a fixed-size buffer.
+#[derive(Clone, Debug)]
 pub struct BidirectionalStack<const CAPACITY: usize> {
     /// Buffer that stores data for both stacks
     buffer: [u8; CAPACITY],
@@ -17,16 +18,17 @@ pub struct BidirectionalStack<const CAPACITY: usize> {
     back_index: usize,
 }
 
-impl<const CAPACITY: usize> BidirectionalStack<CAPACITY> {
-    /// Creates a new empty bidirectional stack with fixed capacity.
-    pub fn new() -> Self {
+impl<const CAPACITY: usize> Default for BidirectionalStack<CAPACITY> {
+    fn default() -> Self {
         BidirectionalStack {
             buffer: [0; CAPACITY],
             front_index: 0,
             back_index: CAPACITY - 1,
         }
     }
+}
 
+impl<const CAPACITY: usize> BidirectionalStack<CAPACITY> {
     /// Returns the amount of free space available in the stack.
     pub fn available_capacity(&self) -> usize {
         if self.back_index >= self.front_index {
@@ -140,5 +142,15 @@ impl<const CAPACITY: usize> BidirectionalStack<CAPACITY> {
         // Reverse to get correct order (we read data in reverse)
         result.reverse();
         Some(result)
+    }
+
+    /// Returns true if the front stack is empty.
+    pub fn is_empty_front(&self) -> bool {
+        self.front_index == 0
+    }
+
+    /// Returns true if the back stack is empty.
+    pub fn is_empty_back(&self) -> bool {
+        self.back_index == CAPACITY - 1
     }
 }

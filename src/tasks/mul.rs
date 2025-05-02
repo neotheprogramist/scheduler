@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    codec::stack,
     scheduler::{Scheduler, SchedulerTask},
     tasks::{
         TaskArgs, TaskResult,
@@ -74,7 +73,7 @@ impl Mul {
     /// 4. Either returns the result (if y is 0) or schedules more tasks
     pub fn p0(&mut self, scheduler: &mut Scheduler) {
         // Decode arguments from data stack
-        let args: Args = match stack::try_decode(scheduler) {
+        let args: Args = match scheduler.pop_data() {
             Ok(args) => args,
             Err(e) => {
                 eprintln!("Error decoding multiplication arguments: {:?}", e);
@@ -85,7 +84,7 @@ impl Mul {
         // Special case: if y is 0, result is 0
         if args.y == 0 {
             let res = Res { result: 0 };
-            if let Err(e) = stack::try_encode(scheduler, res) {
+            if let Err(e) = scheduler.push_data(&res) {
                 eprintln!("Error encoding multiplication result: {:?}", e);
             }
             return;
@@ -118,12 +117,12 @@ impl Mul {
             };
 
             // Push state and add args to the stack
-            if let Err(e) = stack::try_encode(scheduler, state) {
+            if let Err(e) = scheduler.push_data(&state) {
                 eprintln!("Error encoding state: {:?}", e);
                 return;
             }
 
-            if let Err(e) = stack::try_encode(scheduler, add_args) {
+            if let Err(e) = scheduler.push_data(&add_args) {
                 eprintln!("Error encoding add args: {:?}", e);
             }
         } else {
@@ -131,7 +130,7 @@ impl Mul {
             let res = Res {
                 result: state.result,
             };
-            if let Err(e) = stack::try_encode(scheduler, res) {
+            if let Err(e) = scheduler.push_data(&res) {
                 eprintln!("Error encoding result: {:?}", e);
             }
         }
@@ -146,7 +145,7 @@ impl Mul {
     /// 4. Either schedules more tasks or returns the final result
     pub fn p1(&mut self, scheduler: &mut Scheduler) {
         // Decode Add result and state
-        let add_res: add::Res = match stack::try_decode(scheduler) {
+        let add_res: add::Res = match scheduler.pop_data() {
             Ok(res) => res,
             Err(e) => {
                 eprintln!("Error decoding add result: {:?}", e);
@@ -154,7 +153,7 @@ impl Mul {
             }
         };
 
-        let mut state: State = match stack::try_decode(scheduler) {
+        let mut state: State = match scheduler.pop_data() {
             Ok(state) => state,
             Err(e) => {
                 eprintln!("Error decoding state: {:?}", e);
@@ -185,12 +184,12 @@ impl Mul {
             };
 
             // Push state and add args to the stack
-            if let Err(e) = stack::try_encode(scheduler, state) {
+            if let Err(e) = scheduler.push_data(&state) {
                 eprintln!("Error encoding state: {:?}", e);
                 return;
             }
 
-            if let Err(e) = stack::try_encode(scheduler, add_args) {
+            if let Err(e) = scheduler.push_data(&add_args) {
                 eprintln!("Error encoding add args: {:?}", e);
             }
         } else {
@@ -198,7 +197,7 @@ impl Mul {
             let res = Res {
                 result: state.result,
             };
-            if let Err(e) = stack::try_encode(scheduler, res) {
+            if let Err(e) = scheduler.push_data(&res) {
                 eprintln!("Error encoding result: {:?}", e);
             }
         }

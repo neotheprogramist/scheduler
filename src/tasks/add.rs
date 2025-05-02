@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::codec::stack;
 use crate::scheduler::{Scheduler, SchedulerTask};
 use crate::tasks::{TaskArgs, TaskResult};
 
@@ -56,7 +55,7 @@ impl Add {
     /// 3. Encode the result back to the data stack
     pub fn p0(&mut self, scheduler: &mut Scheduler) {
         // Decode arguments from data stack
-        let args: Args = match stack::try_decode(scheduler) {
+        let args: Args = match scheduler.pop_data() {
             Ok(args) => args,
             Err(e) => {
                 eprintln!("Error decoding arguments: {:?}", e);
@@ -70,7 +69,7 @@ impl Add {
         };
 
         // Push result to data stack
-        if let Err(e) = stack::try_encode(scheduler, res) {
+        if let Err(e) = scheduler.push_data(&res) {
             eprintln!("Error encoding result: {:?}", e);
         }
     }

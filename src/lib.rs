@@ -4,7 +4,6 @@
 //! in a controlled sequence, with support for serialization and deserialization.
 //! Tasks operate on a data stack and can be composed to create complex operations.
 
-pub mod codec;
 pub mod scheduler;
 pub mod stack;
 pub mod tasks;
