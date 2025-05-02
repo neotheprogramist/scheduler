@@ -1,161 +1,184 @@
-# Scheduler
+# Scheduler with Phased Tasks
 
-A Rust library for task composition and execution with a bidirectional stack architecture.
+This library provides a scheduler that can execute complex tasks by breaking them down into multiple phases. It's designed to make task composition easy and efficient.
 
 ## Features
 
-- **Task-Based Architecture**: Define tasks that can be composed to create complex operations
-- **Bidirectional Stack**: Efficient communication between tasks using a dual-purpose stack
-- **Serialization Support**: Tasks and data can be serialized for storage or transport
-- **Error Handling**: Comprehensive error handling with proper propagation
-- **Type Safety**: Strongly typed task arguments and results
+- **Bidirectional Stack**: The scheduler maintains a data stack for passing information between tasks and a call stack for pending tasks.
+- **Task Composition**: Tasks can be composed to create complex operations from simpler ones.
+- **Phased Execution**: Complex tasks can be divided into multiple phases, with each phase scheduled separately.
+- **Generic Implementation**: A generic `PhasedTask` trait for easy implementation of complex multi-phase tasks.
+- **Macro Support**: A `phased_task!` macro to reduce boilerplate when defining phased tasks.
 
-## Architecture
+## Examples
 
-The library consists of three main components:
-
-1. **Scheduler**: Manages task execution and maintains the bidirectional stack
-2. **Stack**: Provides the underlying data structure for the scheduler
-3. **Tasks**: Implements specific task operations (add, mul, etc.)
-
-## Usage
-
-### Basic Example
+### Basic Addition Task
 
 ```rust
 use scheduler::{Scheduler, tasks::{Add, AddArgs}};
 
-// Create a new scheduler
 let mut scheduler = Scheduler::default();
 
-// Create addition arguments
+// Set up arguments
 let args = AddArgs { x: 5, y: 3 };
-
-// Push arguments to data stack
 scheduler.push_data(&args).unwrap();
 
-// Schedule an addition task
+// Schedule task
 scheduler.push_call(Box::new(Add::new())).unwrap();
 
-// Execute the task
-scheduler.execute().unwrap();
+// Execute
+scheduler.execute_all().unwrap();
 
-// Retrieve the result
-let result: add::Res = scheduler.pop_data().unwrap();
+// Get result
+let result: scheduler::tasks::AddResult = scheduler.pop_data().unwrap();
 assert_eq!(result.result, 8);
 ```
 
-### Complex Example (Multiplication via Addition)
+### Multiplication by Repeated Addition
+
+The multiplication task demonstrates how to implement a complex operation by breaking it down into multiple phases and using other tasks (Add) as building blocks:
 
 ```rust
 use scheduler::{Scheduler, tasks::{Mul, MulArgs}};
 
-// Create a new scheduler
 let mut scheduler = Scheduler::default();
 
-// Create multiplication arguments
+// Set up arguments
 let args = MulArgs { x: 5, y: 3 };
-
-// Push arguments to data stack
 scheduler.push_data(&args).unwrap();
 
-// Schedule a multiplication task
+// Schedule task
 scheduler.push_call(Box::new(Mul::new())).unwrap();
 
-// Execute all tasks (multiplication schedules additional tasks)
+// Execute
 scheduler.execute_all().unwrap();
 
-// Retrieve the result
-let result: mul::Res = scheduler.pop_data().unwrap();
+// Get result (5 * 3 = 15)
+let result: scheduler::tasks::MulResult = scheduler.pop_data().unwrap();
 assert_eq!(result.result, 15);
 ```
 
-### Creating Custom Tasks
+### Exponentiation using the Generic PhasedTask Trait
 
-1. Define your task structure:
+The exponentiation task shows how to use the `PhasedTask` trait to implement a multi-phase task with less boilerplate:
 
 ```rust
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub enum MyTask {
-    #[default]
-    P0,
+use scheduler::{
+    scheduler::{Scheduler, SchedulerTask},
+    tasks::generic_exp::{ExponentTask, Args, Res},
+};
+
+let mut scheduler = Scheduler::default();
+
+// Set up arguments
+let args = Args { x: 2, y: 3 };
+scheduler.push_data(&args).unwrap();
+
+// Schedule task
+scheduler.push_call(Box::new(ExponentTask::new())).unwrap();
+
+// Execute
+scheduler.execute_all().unwrap();
+
+// Get result (2^3 = 8)
+let result: Res = scheduler.pop_data().unwrap();
+assert_eq!(result.result, 8);
+```
+
+### Exponentiation using the phased_task Macro
+
+The macro approach further reduces boilerplate by generating common code patterns:
+
+```rust
+use scheduler::{
+    error::Result,
+    phased_task,
+    scheduler::{Scheduler, SchedulerTask},
+    tasks::{TaskArgs, TaskResult},
+};
+use serde::{Deserialize, Serialize};
+
+// Define types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpArgs { pub x: u8, pub y: u8 }
+
+impl TaskArgs for ExpArgs {}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpRes { pub result: u8 }
+
+impl TaskResult for ExpRes {}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpState {
+    pub x: u8,
+    pub y: u8,
+    pub result: u8,
+    pub counter: u8,
 }
 
-#[typetag::serde]
-impl SchedulerTask for MyTask {
-    fn execute(&mut self, scheduler: &mut Scheduler) {
-        if let Err(err) = self.p0(scheduler) {
-            eprintln!("Task failed: {:?}", err);
+// Use the macro to define our task
+phased_task! {
+    pub struct MacroExp {
+        args: ExpArgs,
+        result: ExpRes,
+        state: ExpState,
+        phases: [Initial, Next],
+    }
+
+    impl MacroExp {
+        fn initial_phase(&mut self, scheduler: &mut Scheduler, args: Self::Args) -> Result<()> {
+            // Initial phase implementation
+            Ok(())
+        }
+
+        fn subsequent_phase(&mut self, scheduler: &mut Scheduler, state: &mut Self::State) -> Result<()> {
+            // Subsequent phase implementation
+            Ok(())
+        }
+
+        fn is_complete(&self, state: &Self::State) -> bool {
+            // Check if task is complete
+            state.counter >= state.y
+        }
+
+        fn produce_result(&self, state: &Self::State) -> Self::Result {
+            // Produce the final result
+            ExpRes { result: state.result }
         }
     }
 }
 ```
 
-2. Define argument and result types:
+## Getting Started
 
-```rust
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Args {
-    pub value: u32,
-}
+1. Add this library to your dependencies:
+   ```toml
+   [dependencies]
+   scheduler = { path = "..." }
+   ```
 
-impl TaskArgs for Args {}
+2. Create a new task (optional - you can use the built-in tasks):
+   ```rust
+   use scheduler::{phased_task, error::Result, scheduler::Scheduler};
+   
+   // Define your task using one of the approaches above
+   ```
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Res {
-    pub result: u32,
-}
-
-impl TaskResult for Res {}
-```
-
-3. Implement the task execution:
-
-```rust
-impl MyTask {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    fn p0(&mut self, scheduler: &mut Scheduler) -> Result<()> {
-        // Decode arguments from data stack
-        let args: Args = scheduler.pop_data()?;
-
-        // Perform operation
-        let res = Res {
-            result: args.value * 2,
-        };
-
-        // Push result to data stack
-        scheduler.push_data(&res)?;
-        
-        Ok(())
-    }
-}
-```
-
-## Advanced Usage
-
-### Custom Stack Capacity
-
-```rust
-// Create a scheduler with a 1024-byte stack
-let scheduler = Scheduler::with_capacity::<1024>();
-```
-
-### Task Composition
-
-Tasks can schedule additional tasks, allowing complex workflows:
-
-```rust
-// Create tasks
-let task1: Box<dyn SchedulerTask> = Box::new(MyTask1::new());
-let task2: Box<dyn SchedulerTask> = Box::new(MyTask2::new());
-
-// Schedule in reverse order (task2 will execute after task1)
-scheduler.schedule_tasks(vec![task2, task1]).unwrap();
-```
+3. Use the scheduler to execute your tasks:
+   ```rust
+   let mut scheduler = Scheduler::default();
+   
+   // Push arguments and tasks
+   // ...
+   
+   // Execute all tasks
+   scheduler.execute_all().unwrap();
+   
+   // Get results
+   // ...
+   ```
 
 ## License
 
-MIT
+This project is licensed under the MIT License - see the LICENSE file for details.

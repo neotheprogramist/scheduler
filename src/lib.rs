@@ -43,7 +43,7 @@ pub mod tasks;
 // Re-export key types for easier access by library users
 pub use error::{Error, Result};
 pub use scheduler::{Scheduler, SchedulerGeneric, SchedulerTask};
-pub use tasks::{TaskArgs, TaskResult, add, mul};
+pub use tasks::{PhasedTask, TaskArgs, TaskResult, add, exp, generic_exp, mul};
 
 // Library version and metadata
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
