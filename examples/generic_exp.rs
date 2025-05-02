@@ -1,23 +1,28 @@
 use scheduler::{
+    generic_exp,
     scheduler::{Scheduler, SchedulerTask},
-    tasks::generic_exp::{Args, ExponentTask, Res},
 };
 
 fn main() {
     let mut scheduler = Scheduler::default();
 
-    // Set up the exponentiation calculation: 3^4 = 81
-    let args = Args { x: 3, y: 4 };
+    // Set up the exponentiation calculation: 2^5 = 32
+    let args = generic_exp::Args { x: 2, y: 5 };
     scheduler.push_data(&args).unwrap();
 
-    let exp_task: Box<dyn SchedulerTask> = Box::new(ExponentTask::new());
+    let exp_task: Box<dyn SchedulerTask> = Box::new(generic_exp::ExponentTask::default());
     scheduler.push_call(exp_task).unwrap();
 
-    // Execute all tasks
-    scheduler.execute_all().unwrap();
+    // Track the number of execution steps
+    let mut steps = 0;
+    while let Ok(()) = scheduler.execute() {
+        steps += 1;
+    }
+
+    // Print number of execution steps
+    println!("Computation completed in {} steps", steps);
 
     // Get and print the result
-    let res: Res = scheduler.pop_data().unwrap();
+    let res: generic_exp::Res = scheduler.pop_data().unwrap();
     println!("{}^{} = {}", args.x, args.y, res.result);
-    println!("Notice how this task uses the generic PhasedTask trait!");
 }

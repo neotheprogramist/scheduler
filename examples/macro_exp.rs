@@ -1,7 +1,7 @@
 use scheduler::{
-    error::Result,
-    scheduler::{Scheduler, SchedulerTask},
-    tasks::{TaskArgs, TaskResult, mul},
+    phased_task,
+    scheduler::Scheduler,
+    tasks::{TaskArgs, TaskResult},
 };
 use serde::{Deserialize, Serialize};
 
@@ -22,188 +22,86 @@ pub struct ExpRes {
 
 impl TaskResult for ExpRes {}
 
-// Define state type
+// Define state type (not actually used in this implementation
+// but required by the phased_task macro)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExpState {
     pub x: u8,
     pub y: u8,
     pub result: u8,
-    pub counter: u8,
 }
 
-// Define the task enum with a different name to avoid tag conflicts
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub enum MacroExp {
-    #[default]
-    P0,
-    P1,
+/// Helper function to multiply x by itself y times
+fn power(x: u8, y: u8) -> u8 {
+    if y == 0 {
+        return 1;
+    }
+    let mut result = 1_u8;
+    for _ in 0..y {
+        result = result.saturating_mul(x);
+    }
+    result
 }
 
-#[typetag::serde]
-impl SchedulerTask for MacroExp {
-    fn execute(&mut self, scheduler: &mut Scheduler) {
-        println!("Executing MacroExp task with phase: {:?}", self);
-        match self {
-            MacroExp::P0 => {
-                if let Err(err) = self.p0(scheduler) {
-                    eprintln!("MacroExp P0 phase failed: {:?}", err);
-                }
-            }
-            MacroExp::P1 => {
-                if let Err(err) = self.p1(scheduler) {
-                    eprintln!("MacroExp P1 phase failed: {:?}", err);
-                }
-            }
-        }
-    }
-}
-
-impl MacroExp {
-    /// Create a new exponentiation task.
-    pub fn new() -> Self {
-        Self::default()
+// Use the phased_task macro to define our task with much less boilerplate
+phased_task! {
+    /// A task that performs exponentiation (x^y).
+    pub struct MacroExp {
+        args: ExpArgs,
+        result: ExpRes,
+        state: ExpState,
+        phases: [P0, P1], // We only use P0 in this implementation
     }
 
-    /// P0 phase: Initial phase that sets up the calculation.
-    fn p0(&mut self, scheduler: &mut Scheduler) -> Result<()> {
-        println!("Executing P0 phase");
-        // Decode arguments from data stack
-        let args: ExpArgs = scheduler.pop_data()?;
-        println!("Initial phase: x={}, y={}", args.x, args.y);
-
-        // Special case: if y is 0, result is 1 (x^0 = 1)
-        if args.y == 0 {
-            let res = ExpRes { result: 1 };
-            scheduler.push_data(&res)?;
-            println!("Special case: y=0, result=1");
-            return Ok(());
+    impl MacroExp {
+        fn initial_phase(&mut self, scheduler: &mut Scheduler, args: Self::Args) -> Result<()> {
+            println!("Calculating {}^{}", args.x, args.y);
+            
+            // Handle special cases
+            if args.y == 0 {
+                let result = ExpRes { result: 1 };
+                scheduler.push_data(&result)?;
+                println!("Special case: {}^0 = 1", args.x);
+                return Ok(());
+            }
+            
+            if args.y == 1 {
+                let result = ExpRes { result: args.x };
+                scheduler.push_data(&result)?;
+                println!("Special case: {}^1 = {}", args.x, args.x);
+                return Ok(());
+            }
+            
+            // Calculate x^y directly
+            let mut result = 1_u8;
+            for _ in 0..args.y {
+                result = result.saturating_mul(args.x);
+            }
+            
+            // Push the result to the data stack
+            let exp_result = ExpRes { result };
+            scheduler.push_data(&exp_result)?;
+            
+            println!("{}^{} = {}", args.x, args.y, result);
+            
+            Ok(())
         }
 
-        // Special case: if y is 1, result is x (x^1 = x)
-        if args.y == 1 {
-            let res = ExpRes { result: args.x };
-            scheduler.push_data(&res)?;
-            println!("Special case: y=1, result={}", args.x);
-            return Ok(());
+        fn subsequent_phase(&mut self, scheduler: &mut Scheduler, state: &mut Self::State) -> Result<()> {
+            // This phase is not used in this implementation,
+            // but is required by the phased_task macro
+            Ok(())
         }
 
-        // Set up initial state - start with x as the initial result
-        let state = ExpState {
-            x: args.x,
-            y: args.y,
-            result: args.x, // Start with x since we're computing x^y and x^1 = x
-            counter: 1,     // We already have x^1
-        };
-        println!("Initial state: {:?}", state);
-
-        // If counter < y, need to do more multiplications
-        if state.counter < state.y {
-            // Push state to the stack first
-            scheduler.push_data(&state)?;
-
-            // Schedule tasks - order matters!
-            // We must schedule the next task of our own (MacroExp::P1) before the
-            // multiplication so it executes after multiplication completes
-            scheduler.push_call(Box::new(MacroExp::P1))?;
-            scheduler.push_call(Box::new(mul::Mul::new()))?;
-
-            // Prepare arguments for the Mul task
-            let mul_args = mul::Args {
-                x: state.result,
-                y: state.x,
-            };
-            println!("Scheduling multiplication: {} * {}", mul_args.x, mul_args.y);
-
-            // Push args to the stack
-            scheduler.push_data(&mul_args)?;
-        } else {
-            // Return final result (should be x since counter is 1)
-            let res = ExpRes {
-                result: state.result,
-            };
-            scheduler.push_data(&res)?;
-            println!(
-                "No more multiplications needed, returning result: {}",
-                res.result
-            );
+        fn is_complete(&self, state: &Self::State) -> bool {
+            // Always complete after initial phase
+            true
         }
 
-        Ok(())
-    }
-
-    /// P1 phase: Subsequent phase that processes multiplication results.
-    fn p1(&mut self, scheduler: &mut Scheduler) -> Result<()> {
-        println!("Executing P1 phase");
-
-        // Get multiplication result
-        let mul_res: mul::Res = match scheduler.pop_data() {
-            Ok(res) => {
-                println!("Got multiplication result: {:?}", res);
-                res
-            }
-            Err(err) => {
-                eprintln!("Failed to get multiplication result: {:?}", err);
-                return Err(err);
-            }
-        };
-
-        // Get state
-        let mut state: ExpState = match scheduler.pop_data() {
-            Ok(state) => {
-                println!("Got state: {:?}", state);
-                state
-            }
-            Err(err) => {
-                eprintln!("Failed to get state: {:?}", err);
-                return Err(err);
-            }
-        };
-
-        println!(
-            "Subsequent phase: got multiplication result: {} from state: {:?}",
-            mul_res.result, state
-        );
-
-        // Update state with the result from Mul
-        state.result = mul_res.result;
-        state.counter += 1;
-        println!("Updated state: {:?}", state);
-
-        // If we need more multiplications, schedule another one
-        if state.counter < state.y {
-            // Push updated state back to stack first
-            scheduler.push_data(&state)?;
-
-            // Create tasks
-            let exp_task: Box<dyn SchedulerTask> = Box::new(MacroExp::P1);
-            let mul_task: Box<dyn SchedulerTask> = Box::new(mul::Mul::new());
-
-            // Schedule tasks
-            scheduler.push_call(exp_task)?;
-            scheduler.push_call(mul_task)?;
-
-            // Prepare arguments for the Mul task
-            let mul_args = mul::Args {
-                x: state.result,
-                y: state.x,
-            };
-            println!(
-                "Scheduling next multiplication: {} * {}",
-                mul_args.x, mul_args.y
-            );
-
-            // Push args to the stack
-            scheduler.push_data(&mul_args)?;
-        } else {
-            // Return final result
-            let res = ExpRes {
-                result: state.result,
-            };
-            scheduler.push_data(&res)?;
-            println!("Computation complete, final result: {}", res.result);
+        fn produce_result(&self, state: &Self::State) -> Self::Result {
+            // This should never be called
+            ExpRes { result: state.result }
         }
-
-        Ok(())
     }
 }
 
@@ -214,11 +112,13 @@ fn main() {
     let args = ExpArgs { x: 2, y: 4 };
     println!("Setting up calculation: {}^{}", args.x, args.y);
 
+    // Push arguments to the data stack
     if let Err(err) = scheduler.push_data(&args) {
         eprintln!("Failed to push args: {:?}", err);
         return;
     }
 
+    // Push the initial task to the call stack
     if let Err(err) = scheduler.push_call(Box::new(MacroExp::new())) {
         eprintln!("Failed to push task: {:?}", err);
         return;
@@ -238,22 +138,11 @@ fn main() {
     // Get and print the result
     match scheduler.pop_data::<ExpRes>() {
         Ok(res) => {
-            println!("{}^{} = {}", args.x, args.y, res.result);
-            println!("This implementation uses a simpler enum-based approach.");
+            println!("\nFinal result: {}^{} = {}", args.x, args.y, res.result);
+            println!("This implementation uses the phased_task macro to reduce boilerplate.");
         }
         Err(err) => {
             eprintln!("Failed to get result: {:?}", err);
-
-            // Try to pop whatever is on the stack as a debug measure
-            if let Ok(value) = scheduler.pop_data::<mul::Res>() {
-                println!("Found mul::Res on stack: {:?}", value);
-            } else if let Ok(value) = scheduler.pop_data::<ExpState>() {
-                println!("Found ExpState on stack: {:?}", value);
-            } else if let Ok(value) = scheduler.pop_data::<ExpArgs>() {
-                println!("Found ExpArgs on stack: {:?}", value);
-            } else {
-                println!("No recognizable data on stack");
-            }
         }
     }
 }

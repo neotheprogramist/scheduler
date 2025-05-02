@@ -10,6 +10,7 @@
 //! Some tasks may also schedule additional tasks for more complex operations.
 
 pub mod add;
+pub mod builder_mul;
 pub mod exp;
 pub mod generic_exp;
 pub mod macros;
@@ -21,6 +22,7 @@ pub use add::{Add, Args as AddArgs, Res as AddResult};
 pub use exp::{Args as ExpArgs, Exp, Res as ExpResult};
 pub use generic_exp::{Args as GenericExpArgs, ExponentTask, Res as GenericExpResult};
 pub use mul::{Args as MulArgs, Mul, Res as MulResult};
+pub use builder_mul::{MulBuilder, Initial, Next, ErrorHandling, Args as MulBuilderArgs, Res as MulBuilderResult};
 pub use traits::PhasedTask;
 
 // We don't re-export macros here since they are re-exported at the crate root level

@@ -108,17 +108,39 @@ impl PhasedTask for ExponentTask {
             return Ok(());
         }
 
-        // For all other cases, calculate directly
-        let mut final_result: u8 = 1;
-        for _ in 0..args.y {
-            final_result = final_result.saturating_mul(args.x);
-        }
-
-        // Return the correctly calculated result
-        let res = Res {
-            result: final_result,
+        // Set up initial state - start with x as the initial result
+        let state = State {
+            x: args.x,
+            y: args.y,
+            result: args.x,
+            counter: 1, // We already have x^1
         };
-        scheduler.push_data(&res)?;
+
+        // If counter < y, need to do more multiplications
+        if state.counter < state.y {
+            // Create tasks
+            let mul_task = Box::new(Mul::new());
+            let exp_task = self.next_phase();
+
+            // Schedule tasks (Mul then Exp)
+            scheduler.schedule_tasks(vec![mul_task, exp_task])?;
+
+            // Prepare arguments for the Mul task
+            let mul_args = mul::Args {
+                x: state.result,
+                y: state.x,
+            };
+
+            // Push state and mul args to the stack
+            scheduler.push_data(&state)?;
+            scheduler.push_data(&mul_args)?;
+        } else {
+            // Return final result (should be x since counter is 1)
+            let res = Res {
+                result: state.result,
+            };
+            scheduler.push_data(&res)?;
+        }
 
         Ok(())
     }
@@ -137,17 +159,20 @@ impl PhasedTask for ExponentTask {
 
         // If we need more multiplications, schedule another one
         if !self.is_complete(state) {
-            // Create multiplication task
-            let mul_task: Box<dyn SchedulerTask> = Box::new(Mul::new());
-            scheduler.push_call(mul_task)?;
+            // Create tasks
+            let mul_task = Box::new(Mul::new());
+            let exp_task = self.next_phase();
 
-            // Prepare multiplication arguments
+            // Schedule tasks (Mul then Exp)
+            scheduler.schedule_tasks(vec![mul_task, exp_task])?;
+
+            // Prepare arguments for the Mul task
             let mul_args = mul::Args {
                 x: state.result,
                 y: state.x,
             };
 
-            // Push multiplication arguments
+            // Push mul args to the stack
             scheduler.push_data(&mul_args)?;
         }
 
