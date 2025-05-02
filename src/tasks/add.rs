@@ -1,4 +1,3 @@
-use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::codec::stack;
@@ -18,13 +17,13 @@ impl SchedulerTask for Add {
     }
 }
 
-#[derive(Debug, Decode, Encode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Args {
     pub x: u8,
     pub y: u8,
 }
 
-#[derive(Debug, Decode, Encode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Res {
     pub result: u8,
 }

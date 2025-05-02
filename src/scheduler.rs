@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use std::io::Cursor;
 
 #[typetag::serde(tag = "type")]
 pub trait SchedulerTask {
@@ -11,11 +12,17 @@ pub trait SchedulerTask {
 pub enum TaskError {
     #[error("empty stack")]
     EmptyStack,
+    #[error("serialization error: {0}")]
+    SerializationError(String),
+    #[error("deserialization error: {0}")]
+    DeserializationError(String),
+    #[error("invalid task length")]
+    InvalidTaskLength,
 }
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct Scheduler {
-    pub call_stack: Vec<Box<dyn SchedulerTask>>,
+    pub call_stack: Vec<u8>,
     pub data_stack: Vec<u8>,
 }
 
@@ -25,7 +32,19 @@ impl Scheduler {
     }
 
     pub fn push_call(&mut self, task: Box<dyn SchedulerTask>) {
-        self.call_stack.push(task);
+        let mut buffer = Vec::new();
+        ciborium::ser::into_writer(&task, &mut buffer)
+            .map_err(|e| TaskError::SerializationError(e.to_string()))
+            .unwrap();
+        
+        // Get the length before extending the call stack
+        let len = buffer.len() as u32;
+        
+        // Push the task data
+        self.call_stack.extend(buffer);
+        
+        // Push the length as a u32 (4 bytes)
+        self.call_stack.extend_from_slice(&len.to_le_bytes());
     }
 
     pub fn extend_data(&mut self, data: &[u8]) {
@@ -34,7 +53,27 @@ impl Scheduler {
 
     pub fn execute(&mut self) -> Result<(), TaskError> {
         println!("Data Stack: {:?}", self.data_stack);
-        let mut task = self.call_stack.pop().ok_or(TaskError::EmptyStack)?;
+        if self.call_stack.len() < 4 {
+            return Err(TaskError::EmptyStack);
+        }
+
+        // Pop the length (last 4 bytes)
+        let len_bytes = self.call_stack.split_off(self.call_stack.len() - 4);
+        let len = u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize;
+
+        // Check if we have enough data
+        if self.call_stack.len() < len {
+            return Err(TaskError::InvalidTaskLength);
+        }
+
+        // Get the task data
+        let task_data = self.call_stack.split_off(self.call_stack.len() - len);
+        
+        // Deserialize the task
+        let mut cursor = Cursor::new(&task_data);
+        let mut task: Box<dyn SchedulerTask> = ciborium::de::from_reader(&mut cursor)
+            .map_err(|e| TaskError::DeserializationError(e.to_string()))?;
+        
         task.execute(self);
         Ok(())
     }
@@ -55,7 +94,9 @@ impl Scheduler {
 
     // Schedule multiple tasks at once (in reverse order)
     pub fn schedule_tasks(&mut self, tasks: Vec<Box<dyn SchedulerTask>>) {
-        self.call_stack.extend(tasks.into_iter().rev());
+        for task in tasks.into_iter().rev() {
+            self.push_call(task);
+        }
     }
 
     // Push multiple byte vectors to the data stack (in reverse order)

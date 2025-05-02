@@ -1,4 +1,3 @@
-use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -23,7 +22,7 @@ impl SchedulerTask for Mul {
     }
 }
 
-#[derive(Debug, Decode, Encode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct State {
     pub x: u8,
     pub y: u8,
@@ -31,13 +30,13 @@ pub struct State {
     pub counter: u8,
 }
 
-#[derive(Debug, Decode, Encode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Args {
     pub x: u8,
     pub y: u8,
 }
 
-#[derive(Debug, Decode, Encode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Res {
     pub result: u8,
 }
@@ -72,11 +71,9 @@ impl Mul {
                 y: state.x,
             };
 
-            // Encode separately and push to stack
-            let add_args_encoded =
-                bincode::encode_to_vec(add_args, bincode::config::standard()).unwrap();
-            let state_encoded = bincode::encode_to_vec(state, bincode::config::standard()).unwrap();
-            scheduler.push_multiple_data(vec![add_args_encoded, state_encoded]);
+            // Push state first, then add args (they will be popped in reverse order)
+            stack::encode(scheduler, state);
+            stack::encode(scheduler, add_args);
         } else {
             // Return final result
             let res = Res {
@@ -89,7 +86,7 @@ impl Mul {
     pub fn p1(&mut self, scheduler: &mut Scheduler) {
         println!("execute: Mul p1");
 
-        // Decode Add result and state
+        // Decode Add result and state (in reverse order of pushing)
         let add_res: add::Res = stack::decode(scheduler);
         let mut state: State = stack::decode(scheduler);
 
@@ -114,11 +111,9 @@ impl Mul {
                 y: state.x,
             };
 
-            // Encode separately and push to stack
-            let add_args_encoded =
-                bincode::encode_to_vec(add_args, bincode::config::standard()).unwrap();
-            let state_encoded = bincode::encode_to_vec(state, bincode::config::standard()).unwrap();
-            scheduler.push_multiple_data(vec![add_args_encoded, state_encoded]);
+            // Push state first, then add args (they will be popped in reverse order)
+            stack::encode(scheduler, state);
+            stack::encode(scheduler, add_args);
         } else {
             // Return final result
             let res = Res {

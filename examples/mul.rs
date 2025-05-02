@@ -5,9 +5,13 @@ use scheduler::{
 
 fn main() {
     let mut scheduler = Scheduler::new();
-    scheduler.extend_data(
-        &bincode::encode_to_vec(mul::Args { x: 2, y: 5 }, bincode::config::standard()).unwrap(),
-    );
+    
+    // Encode arguments using CBOR
+    let mut buffer = Vec::new();
+    let args = mul::Args { x: 9, y: 11 };
+    ciborium::ser::into_writer(&args, &mut buffer).unwrap();
+    scheduler.extend_data(&buffer);
+    
     let mul_task: Box<dyn SchedulerTask> = Box::new(mul::Mul::default());
     scheduler.push_call(mul_task);
 
@@ -19,12 +23,12 @@ fn main() {
 
     println!("Computation completed in {} steps", steps);
 
-    let reversed_data: Vec<u8> = scheduler.data_stack.iter().rev().cloned().collect();
-    let (res, len): (mul::Res, usize) =
-        bincode::decode_from_slice(&reversed_data, bincode::config::standard()).unwrap();
-    scheduler
-        .data_stack
-        .truncate(scheduler.data_stack.len() - len);
+    // Decode result using CBOR
+    let reversed_data = scheduler.get_reversed_data();
+    let mut cursor = std::io::Cursor::new(&reversed_data);
+    let res: mul::Res = ciborium::de::from_reader(&mut cursor).unwrap();
+    let pos = cursor.position() as usize;
+    scheduler.truncate_stack(pos);
 
     println!("Computation result: {:?}", res);
 }
