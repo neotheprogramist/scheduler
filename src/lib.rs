@@ -6,6 +6,7 @@
 
 pub mod codec;
 pub mod scheduler;
+pub mod stack;
 pub mod tasks;
 
 // Re-export key types for easier access by library users
