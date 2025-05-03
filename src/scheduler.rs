@@ -71,18 +71,13 @@ pub struct SchedulerGeneric<const CAPACITY: usize> {
 
 impl Default for Scheduler {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Scheduler {
-    /// Creates a new scheduler with empty call and data stacks.
-    pub fn new() -> Self {
         Self {
             stack: BidirectionalStack::default(),
         }
     }
+}
 
+impl Scheduler {
     /// Creates a new scheduler with the specified capacity for call and data stacks.
     ///
     /// # Examples
@@ -338,7 +333,7 @@ impl<const CAPACITY: usize> SchedulerGeneric<CAPACITY> {
     pub fn to_standard(self) -> Result<Scheduler> {
         // For a real implementation, we would need to copy the stacks' contents
         // This is a simplified version that just creates a new scheduler
-        Ok(Scheduler::new())
+        Ok(Scheduler::default())
     }
 
     /// Push a task onto the call stack.
@@ -385,7 +380,7 @@ impl<const CAPACITY: usize> SchedulerGeneric<CAPACITY> {
 
         // We need to convert to the standard Scheduler for execution
         // This is because the SchedulerTask trait expects a &mut Scheduler
-        let mut std_scheduler = Scheduler::new();
+        let mut std_scheduler = Scheduler::default();
 
         // In a real implementation, we would transfer all data to std_scheduler
         // For now, we just execute with an empty scheduler

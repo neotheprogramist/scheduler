@@ -134,7 +134,7 @@ impl Mul {
         // If counter < y, need to do more additions
         if state.counter < state.y {
             // Create tasks
-            let add_task: Box<dyn SchedulerTask> = Box::new(Add::new());
+            let add_task: Box<dyn SchedulerTask> = Box::new(Add::default());
             let mul_task: Box<dyn SchedulerTask> = Box::new(Mul::P1);
 
             // Schedule tasks (Add then Mul)
@@ -179,7 +179,7 @@ impl Mul {
         // If we haven't reached the target count, schedule more tasks
         if state.counter < state.y {
             // Create tasks
-            let add_task: Box<dyn SchedulerTask> = Box::new(Add::new());
+            let add_task: Box<dyn SchedulerTask> = Box::new(Add::default());
             let mul_task: Box<dyn SchedulerTask> = Box::new(Mul::P1);
 
             // Schedule tasks (Add then Mul)

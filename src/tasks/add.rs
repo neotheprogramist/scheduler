@@ -68,19 +68,6 @@ pub struct Res {
 impl TaskResult for Res {}
 
 impl Add {
-    /// Create a new Add task.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use scheduler::tasks::Add;
-    ///
-    /// let add_task = Add::new();
-    /// ```
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     /// P0 phase: Main execution phase.
     ///
     /// 1. Decode the arguments from the data stack
@@ -116,7 +103,7 @@ mod tests {
         scheduler.push_data(&args).unwrap();
 
         // Execute task
-        let mut task = Add::new();
+        let mut task = Add::default();
         task.execute(&mut scheduler);
 
         // Check result
@@ -133,7 +120,7 @@ mod tests {
         scheduler.push_data(&args).unwrap();
 
         // Execute task
-        let mut task = Add::new();
+        let mut task = Add::default();
         task.execute(&mut scheduler);
 
         // Check result (should be saturated at 255)
