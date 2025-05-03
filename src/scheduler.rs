@@ -56,44 +56,13 @@ pub trait SchedulerTask {
 /// let result: add::Res = scheduler.pop_data().unwrap();
 /// assert_eq!(result.result, 15);
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Scheduler {
     /// Bidirectional stack for both call and data stacks
     stack: BidirectionalStack<4096>, // 4KB stack by default
 }
 
-/// Generic scheduler with configurable stack capacity
-#[derive(Debug)]
-pub struct SchedulerGeneric<const CAPACITY: usize> {
-    /// Bidirectional stack for both call and data stacks
-    stack: BidirectionalStack<CAPACITY>,
-}
-
-impl Default for Scheduler {
-    fn default() -> Self {
-        Self {
-            stack: BidirectionalStack::default(),
-        }
-    }
-}
-
 impl Scheduler {
-    /// Creates a new scheduler with the specified capacity for call and data stacks.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use scheduler::Scheduler;
-    ///
-    /// // Create a scheduler with a 1024-byte stack
-    /// let scheduler = Scheduler::with_capacity::<1024>();
-    /// ```
-    pub fn with_capacity<const CAPACITY: usize>() -> SchedulerGeneric<CAPACITY> {
-        SchedulerGeneric {
-            stack: BidirectionalStack::<CAPACITY>::default(),
-        }
-    }
-
     /// Push a task onto the call stack.
     ///
     /// The task is serialized and pushed to the back of the stack.
@@ -304,96 +273,6 @@ impl Scheduler {
             self.push_data(data)?;
         }
         Ok(())
-    }
-
-    /// Clear all data from both stacks.
-    pub fn clear(&mut self) {
-        self.stack = BidirectionalStack::default();
-    }
-}
-
-impl<const CAPACITY: usize> Default for SchedulerGeneric<CAPACITY> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<const CAPACITY: usize> SchedulerGeneric<CAPACITY> {
-    /// Creates a new scheduler with empty call and data stacks.
-    pub fn new() -> Self {
-        Self {
-            stack: BidirectionalStack::default(),
-        }
-    }
-
-    /// Convert to a standard scheduler by copying the contents of the stack.
-    ///
-    /// This is useful when you need to pass the scheduler to a function that expects the standard size.
-    /// Note that this will fail if the data doesn't fit in the standard scheduler.
-    pub fn to_standard(self) -> Result<Scheduler> {
-        // For a real implementation, we would need to copy the stacks' contents
-        // This is a simplified version that just creates a new scheduler
-        Ok(Scheduler::default())
-    }
-
-    /// Push a task onto the call stack.
-    pub fn push_call(&mut self, task: Box<dyn SchedulerTask>) -> Result<()> {
-        let mut buffer = Vec::new();
-        ciborium::ser::into_writer(&task, &mut buffer)?;
-
-        // Push the task data
-        self.stack.push_back(&buffer)?;
-
-        Ok(())
-    }
-
-    /// Push data onto the data stack.
-    pub fn push_data<T: Serialize>(&mut self, data: &T) -> Result<()> {
-        let mut buffer = Vec::new();
-        ciborium::ser::into_writer(data, &mut buffer)?;
-
-        // Push the data
-        self.stack.push_front(&buffer)?;
-        Ok(())
-    }
-
-    /// Pop data from the data stack.
-    pub fn pop_data<T: DeserializeOwned>(&mut self) -> Result<T> {
-        // Pop the data
-        let data = self.stack.pop_front().ok_or(Error::EmptyStack)?;
-
-        // Deserialize the data
-        let mut cursor = Cursor::new(&data);
-        let result: T = ciborium::de::from_reader(&mut cursor)?;
-
-        Ok(result)
-    }
-
-    /// Execute the next task on the call stack.
-    pub fn execute(&mut self) -> Result<()> {
-        // Pop the task data
-        let task_data = self.stack.pop_back().ok_or(Error::InvalidTaskLength)?;
-
-        // Deserialize the task
-        let mut cursor = Cursor::new(&task_data);
-        let mut task: Box<dyn SchedulerTask> = ciborium::de::from_reader(&mut cursor)?;
-
-        // We need to convert to the standard Scheduler for execution
-        // This is because the SchedulerTask trait expects a &mut Scheduler
-        let mut std_scheduler = Scheduler::default();
-
-        // In a real implementation, we would transfer all data to std_scheduler
-        // For now, we just execute with an empty scheduler
-        task.execute(&mut std_scheduler);
-
-        // In a real implementation, we would transfer results back
-
-        Ok(())
-    }
-
-    /// Check if the call stack is empty.
-    pub fn is_empty(&self) -> bool {
-        self.stack.is_empty_back()
     }
 
     /// Clear all data from both stacks.
