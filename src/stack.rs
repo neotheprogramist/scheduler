@@ -41,7 +41,7 @@ impl<const CAPACITY: usize> BidirectionalStack<CAPACITY> {
     /// Checks if there's enough capacity for the given data size plus one byte for length.
     fn has_capacity_for(&self, data_size: usize) -> bool {
         // Need space for data + 1 byte to store length
-        self.available_capacity() >= data_size + 1
+        self.available_capacity() > data_size
     }
 
     /// Pushes data to the front of the stack.
@@ -156,7 +156,7 @@ impl<const CAPACITY: usize> BidirectionalStack<CAPACITY> {
 
         // Extract the data
         let mut result = Vec::with_capacity(data_length);
-        for i in 0..data_length {
+        for _ in 0..data_length {
             self.back_index = self.back_index.saturating_add(1);
             result.push(self.buffer[self.back_index]);
         }
