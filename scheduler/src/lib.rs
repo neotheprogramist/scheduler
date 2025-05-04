@@ -1,6 +1,26 @@
-use crate::error::{Error, Result};
-use crate::stack::BidirectionalStack;
+//! # Scheduler
+//!
+//! A task scheduler library that allows for serialization and execution of tasks.
+//!
+//! ## Features
+//!
+//! - Task-based execution model
+//! - Bidirectional stack for storing tasks and data
+//! - Serialization of tasks using CBOR
+//! - Error handling
+//!
+
+/// Error handling types and utilities
+pub mod error;
+
+/// Bidirectional stack implementation
+pub mod stack;
+
+// Re-export commonly used types
+pub use error::{Error, Result};
+
 use serde::{Serialize, de::DeserializeOwned};
+use stack::BidirectionalStack;
 use std::io::Cursor;
 
 /// Trait for tasks that can be executed by the scheduler.

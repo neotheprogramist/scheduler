@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    Result,
-    scheduler::{Scheduler, SchedulerTask},
-};
+use scheduler::{Result, Scheduler, SchedulerTask};
 
 /// A task that adds two numbers together.
 ///
@@ -56,7 +53,7 @@ impl SchedulerTask for Add {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scheduler::Scheduler;
+    use scheduler::Scheduler;
 
     #[test]
     fn test_add_normal() {

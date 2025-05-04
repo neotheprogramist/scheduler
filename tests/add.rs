@@ -1,4 +1,5 @@
-use scheduler::{scheduler::Scheduler, tasks::add};
+use scheduler::scheduler::Scheduler;
+use tasks::add;
 
 #[test]
 fn test_add() {

@@ -1,0 +1,10 @@
+[package]
+name = "scheduler"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ciborium.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+typetag.workspace = true
