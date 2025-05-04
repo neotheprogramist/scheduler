@@ -56,7 +56,7 @@ impl Scheduler {
 
     /// Pops a task from the scheduler's task stack.
     pub fn pop_task(&mut self) -> Result<Box<dyn SchedulerTask>> {
-        let data = self.stack.pop_back().ok_or(Error::EmptyStack)?;
+        let data = self.stack.pop_back()?;
 
         let mut cursor = Cursor::new(&data);
         let result = ciborium::de::from_reader(&mut cursor).map_err(Error::Deserialization)?;
@@ -66,33 +66,10 @@ impl Scheduler {
 
     /// Pops data from the scheduler's data stack.
     pub fn pop_data<T: DeserializeOwned>(&mut self) -> Result<T> {
-        let data = self.stack.pop_front().ok_or(Error::EmptyStack)?;
+        let data = self.stack.pop_front()?;
 
         let mut cursor = Cursor::new(&data);
         let result = ciborium::de::from_reader(&mut cursor).map_err(Error::Deserialization)?;
-
-        Ok(result)
-    }
-
-    /// Peek at the next task without removing it.
-    ///
-    /// Note: This is inefficient as it currently has to deserialize and then
-    /// re-serialize the task due to the stack implementation.
-    pub fn peek_task(&mut self) -> Result<Box<dyn SchedulerTask>> {
-        // We need a mutable reference to pop and push
-        let data = self.stack.pop_back().ok_or(Error::EmptyStack)?;
-
-        // Make a clone of the data for pushing back
-        let data_clone = data.clone();
-
-        let mut cursor = Cursor::new(&data);
-        let result: Box<dyn SchedulerTask> =
-            ciborium::de::from_reader(&mut cursor).map_err(Error::Deserialization)?;
-
-        // Push the cloned data back since this is just a peek
-        self.stack
-            .push_back(&data_clone)
-            .map_err(Error::StackCapacity)?;
 
         Ok(result)
     }

@@ -75,27 +75,17 @@ impl<const CAPACITY: usize> BidirectionalStack<CAPACITY> {
     /// Pops data from the front of the stack.
     ///
     /// Returns None if the stack is empty from the front.
-    pub fn pop_front(&mut self) -> Option<Vec<u8>> {
+    pub fn pop_front(&mut self) -> Result<Vec<u8>, StackError> {
         if self.is_empty_front() {
-            return None;
+            return Err(StackError::Underflow);
         }
 
         // Move back one position, adjusting for safety
         self.front_index = self.front_index.saturating_sub(1);
 
-        // Get the last element to find the data size
-        let data_end = self.front_index;
-
         // Move back data_length positions to find the start of the data
-        let data_length = self.buffer[self.front_index] as usize;
+        let data_length = self.buffer[self.front_index].into();
         self.front_index = self.front_index.saturating_sub(data_length);
-
-        // Verify that we have valid data bounds
-        if self.front_index >= data_end {
-            // Something went wrong, reset and return None
-            self.front_index = data_end + 1;
-            return None;
-        }
 
         // Extract the data
         let mut result = Vec::with_capacity(data_length);
@@ -103,7 +93,7 @@ impl<const CAPACITY: usize> BidirectionalStack<CAPACITY> {
             result.push(self.buffer[self.front_index + i]);
         }
 
-        Some(result)
+        Ok(result)
     }
 
     /// Pushes data to the back of the stack.
@@ -137,22 +127,14 @@ impl<const CAPACITY: usize> BidirectionalStack<CAPACITY> {
     /// Pops data from the back of the stack.
     ///
     /// Returns None if the stack is empty from the back.
-    pub fn pop_back(&mut self) -> Option<Vec<u8>> {
+    pub fn pop_back(&mut self) -> Result<Vec<u8>, StackError> {
         if self.is_empty_back() {
-            return None;
+            return Err(StackError::Underflow);
         }
 
         // Read data length
         self.back_index = self.back_index.saturating_add(1);
-        let data_start = self.back_index;
-        let data_length = self.buffer[self.back_index] as usize;
-
-        // Ensure we have enough data
-        if data_start + data_length > CAPACITY {
-            // Something went wrong, reset and return None
-            self.back_index = data_start.saturating_sub(1);
-            return None;
-        }
+        let data_length = self.buffer[self.back_index].into();
 
         // Extract the data
         let mut result = Vec::with_capacity(data_length);
@@ -161,7 +143,7 @@ impl<const CAPACITY: usize> BidirectionalStack<CAPACITY> {
             result.push(self.buffer[self.back_index]);
         }
 
-        Some(result)
+        Ok(result)
     }
 
     /// Returns true if the stack is empty from the front.
