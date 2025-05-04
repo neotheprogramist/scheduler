@@ -25,7 +25,7 @@ pub trait SchedulerTask {
     /// This method is called when the task is popped from the call stack.
     /// It can read from and write to the data stack, and also push more tasks
     /// onto the call stack if needed.
-    fn execute(&mut self, scheduler: &mut Scheduler);
+    fn execute(&mut self, scheduler: &mut Scheduler) -> Result<Vec<Box<dyn SchedulerTask>>>;
 }
 
 /// The main scheduler that manages task execution.
@@ -84,7 +84,7 @@ impl Scheduler {
     /// let mut scheduler = Scheduler::default();
     /// scheduler.push_call(Box::new(Add::new())).unwrap();
     /// ```
-    pub fn push_call(&mut self, task: Box<dyn SchedulerTask>) -> Result<()> {
+    pub fn push_task(&mut self, task: Box<dyn SchedulerTask>) -> Result<()> {
         let mut buffer = Vec::new();
         ciborium::ser::into_writer(&task, &mut buffer)?;
 
@@ -125,6 +125,17 @@ impl Scheduler {
         Ok(())
     }
 
+    pub fn pop_task(&mut self) -> Result<Box<dyn SchedulerTask>> {
+        // Pop the data
+        let data = self.stack.pop_back().ok_or(Error::EmptyStack)?;
+
+        // Deserialize the data
+        let mut cursor = Cursor::new(&data);
+        let result = ciborium::de::from_reader(&mut cursor)?;
+
+        Ok(result)
+    }
+
     /// Pop data from the data stack.
     ///
     /// The data is deserialized and returned.
@@ -156,7 +167,7 @@ impl Scheduler {
 
         // Deserialize the data
         let mut cursor = Cursor::new(&data);
-        let result: T = ciborium::de::from_reader(&mut cursor)?;
+        let result = ciborium::de::from_reader(&mut cursor)?;
 
         Ok(result)
     }
@@ -184,15 +195,15 @@ impl Scheduler {
     /// scheduler.execute().unwrap();
     /// ```
     pub fn execute(&mut self) -> Result<()> {
-        // Pop the task data
-        let task_data = self.stack.pop_back().ok_or(Error::InvalidTaskLength)?;
-
-        // Deserialize the task
-        let mut cursor = Cursor::new(&task_data);
-        let mut task: Box<dyn SchedulerTask> = ciborium::de::from_reader(&mut cursor)?;
+        let mut task = self.pop_task()?;
 
         // Execute the task
-        task.execute(self);
+        let tasks = task.execute(self)?;
+
+        for task in tasks.into_iter().rev() {
+            self.push_task(task)?;
+        }
+
         Ok(())
     }
 
@@ -237,46 +248,5 @@ impl Scheduler {
     /// * `false` if there are tasks pending execution
     pub fn is_empty(&self) -> bool {
         self.stack.is_empty_back()
-    }
-
-    /// Schedule multiple tasks at once (in reverse order).
-    ///
-    /// Tasks are scheduled in reverse order so that they execute in the order provided.
-    ///
-    /// # Arguments
-    ///
-    /// * `tasks` - The tasks to schedule
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(())` if all tasks were scheduled successfully
-    /// * `Error` if any task scheduling fails
-    pub fn schedule_tasks(&mut self, tasks: Vec<Box<dyn SchedulerTask>>) -> Result<()> {
-        for task in tasks.into_iter().rev() {
-            self.push_call(task)?;
-        }
-        Ok(())
-    }
-
-    /// Push multiple data items to the data stack.
-    ///
-    /// # Arguments
-    ///
-    /// * `data_items` - The data items to push
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(())` if all data items were pushed successfully
-    /// * `Error` if any data item push fails
-    pub fn push_multiple_data<T: Serialize>(&mut self, data_items: &[T]) -> Result<()> {
-        for data in data_items.iter() {
-            self.push_data(data)?;
-        }
-        Ok(())
-    }
-
-    /// Clear all data from both stacks.
-    pub fn clear(&mut self) {
-        self.stack = BidirectionalStack::default();
     }
 }

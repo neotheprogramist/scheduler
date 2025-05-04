@@ -17,16 +17,16 @@ pub enum Error {
     EmptyStack,
 
     /// Error related to stack capacity
-    #[error("Stack capacity error: {0}")]
-    StackCapacity(String),
+    #[error(transparent)]
+    StackCapacity(#[from] StackError),
 
     /// Error during serialization
-    #[error("Serialization error: {0}")]
-    Serialization(String),
+    #[error(transparent)]
+    Serialization(#[from] ciborium::ser::Error<std::io::Error>),
 
     /// Error during deserialization
-    #[error("Deserialization error: {0}")]
-    Deserialization(String),
+    #[error(transparent)]
+    Deserialization(#[from] ciborium::de::Error<std::io::Error>),
 
     /// Invalid task length
     #[error("Invalid task length")]
@@ -39,29 +39,4 @@ pub enum Error {
     /// Task-specific error
     #[error("Task error: {0}")]
     Task(String),
-}
-
-// Convert from StackError to Error
-impl From<StackError> for Error {
-    fn from(err: StackError) -> Self {
-        match err {
-            StackError::InsufficientCapacity => {
-                Error::StackCapacity("Not enough space in stack".to_string())
-            }
-        }
-    }
-}
-
-// Convert from ciborium::ser::Error to Error
-impl From<ciborium::ser::Error<std::io::Error>> for Error {
-    fn from(err: ciborium::ser::Error<std::io::Error>) -> Self {
-        Error::Serialization(err.to_string())
-    }
-}
-
-// Convert from ciborium::de::Error to Error
-impl From<ciborium::de::Error<std::io::Error>> for Error {
-    fn from(err: ciborium::de::Error<std::io::Error>) -> Self {
-        Error::Deserialization(err.to_string())
-    }
 }

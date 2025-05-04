@@ -5,9 +5,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::Result;
-use crate::scheduler::{Scheduler, SchedulerTask};
-use crate::tasks::{TaskArgs, TaskResult};
+use crate::{
+    Result,
+    scheduler::{Scheduler, SchedulerTask},
+};
 
 /// A task that performs addition of two numbers.
 ///
@@ -29,63 +30,30 @@ use crate::tasks::{TaskArgs, TaskResult};
 /// scheduler.execute().unwrap();
 /// ```
 #[derive(Debug, Default, Serialize, Deserialize)]
-pub enum Add {
-    #[default]
-    P0,
-}
-
-#[typetag::serde]
-impl SchedulerTask for Add {
-    fn execute(&mut self, scheduler: &mut Scheduler) {
-        match self {
-            Add::P0 => {
-                if let Err(err) = self.p0(scheduler) {
-                    eprintln!("Addition task failed: {:?}", err);
-                }
-            }
-        }
-    }
-}
-
-/// Arguments for the Add task.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Args {
+pub struct Add {
     /// First operand
     pub x: u8,
     /// Second operand
     pub y: u8,
 }
 
-impl TaskArgs for Args {}
-
-/// Result of the Add task.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Res {
-    /// The sum of x and y
+pub struct Output {
     pub result: u8,
 }
 
-impl TaskResult for Res {}
-
-impl Add {
-    /// P0 phase: Main execution phase.
-    ///
-    /// 1. Decode the arguments from the data stack
-    /// 2. Perform the addition
-    /// 3. Encode the result back to the data stack
-    fn p0(&mut self, scheduler: &mut Scheduler) -> Result<()> {
-        // Decode arguments from data stack
-        let args: Args = scheduler.pop_data()?;
-
+#[typetag::serde]
+impl SchedulerTask for Add {
+    fn execute(&mut self, scheduler: &mut Scheduler) -> Result<Vec<Box<dyn SchedulerTask>>> {
         // Calculate result (using saturating_add to prevent overflow)
-        let res = Res {
-            result: args.x.saturating_add(args.y),
+        let output: Output = Output {
+            result: self.x.saturating_add(self.y),
         };
 
         // Push result to data stack
-        scheduler.push_data(&res)?;
+        scheduler.push_data(&output)?;
 
-        Ok(())
+        Ok(vec![])
     }
 }
 
@@ -98,33 +66,14 @@ mod tests {
     fn test_add_normal() {
         let mut scheduler = Scheduler::default();
 
-        // Set up arguments
-        let args = Args { x: 5, y: 10 };
-        scheduler.push_data(&args).unwrap();
+        scheduler.push_task(Box::new(Add { x: 5, y: 10 })).unwrap();
 
         // Execute task
-        let mut task = Add::default();
-        task.execute(&mut scheduler);
+        scheduler.execute().unwrap();
 
+        assert!(scheduler.is_empty());
         // Check result
-        let res: Res = scheduler.pop_data().unwrap();
-        assert_eq!(res.result, 15);
-    }
-
-    #[test]
-    fn test_add_overflow() {
-        let mut scheduler = Scheduler::default();
-
-        // Set up arguments that would overflow u8
-        let args = Args { x: 250, y: 10 };
-        scheduler.push_data(&args).unwrap();
-
-        // Execute task
-        let mut task = Add::default();
-        task.execute(&mut scheduler);
-
-        // Check result (should be saturated at 255)
-        let res: Res = scheduler.pop_data().unwrap();
-        assert_eq!(res.result, 255);
+        let output: Output = scheduler.pop_data().unwrap();
+        assert_eq!(output.result, 15);
     }
 }

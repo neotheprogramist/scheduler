@@ -8,10 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::Result,
     scheduler::{Scheduler, SchedulerTask},
-    tasks::{
-        TaskArgs, TaskResult,
-        add::{self, Add},
-    },
+    tasks::add::{self, Add},
 };
 
 /// A task that performs multiplication by repeated addition.
