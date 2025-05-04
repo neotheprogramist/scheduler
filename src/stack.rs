@@ -18,13 +18,13 @@ pub enum StackError {
 }
 
 #[derive(Clone, Debug)]
-pub struct BidirectionalStack<const CAPACITY: usize, const LENGHT_SIZE: usize> {
+pub struct BidirectionalStack<const CAPACITY: usize, const LENGTH_SIZE: usize> {
     front_index: usize,
     back_index: usize,
     buffer: [u8; CAPACITY],
 }
 
-impl<const CAPACITY: usize, const LENGHT_SIZE: usize> BidirectionalStack<CAPACITY, LENGHT_SIZE> {
+impl<const CAPACITY: usize, const LENGTH_SIZE: usize> BidirectionalStack<CAPACITY, LENGTH_SIZE> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -54,8 +54,8 @@ impl<const CAPACITY: usize, const LENGHT_SIZE: usize> BidirectionalStack<CAPACIT
             self.front_index = self.front_index.saturating_add(1);
         }
 
-        for i in 0..LENGHT_SIZE {
-            self.buffer[self.front_index] = ((data_length >> i * 8) & 0xFF).try_into()?;
+        for i in 0..LENGTH_SIZE {
+            self.buffer[self.front_index] = ((data_length >> (i * 8)) & 0xFF).try_into()?;
             self.front_index = self.front_index.saturating_add(1);
         }
 
@@ -68,13 +68,11 @@ impl<const CAPACITY: usize, const LENGHT_SIZE: usize> BidirectionalStack<CAPACIT
         }
 
         let mut data_length = 0_usize;
-        for _ in 0..LENGHT_SIZE {
-            self.front_index = self.front_index.saturating_add(1);
+        for _ in 0..LENGTH_SIZE {
+            self.front_index = self.front_index.saturating_sub(1);
             let x: usize = self.buffer[self.front_index].into();
             data_length = (data_length << 8) | x;
         }
-        self.front_index = self.front_index.saturating_sub(1);
-        let data_length = self.buffer[self.front_index].into();
 
         let mut result = Vec::with_capacity(data_length);
         for _ in 0..data_length {
@@ -102,8 +100,10 @@ impl<const CAPACITY: usize, const LENGHT_SIZE: usize> BidirectionalStack<CAPACIT
             self.buffer[self.back_index] = *byte;
         }
 
-        self.back_index = self.back_index.saturating_sub(1);
-        self.buffer[self.back_index] = data_length.try_into()?;
+        for i in 0..LENGTH_SIZE {
+            self.back_index = self.back_index.saturating_sub(1);
+            self.buffer[self.back_index] = ((data_length >> (i * 8)) & 0xFF).try_into()?;
+        }
 
         Ok(())
     }
@@ -113,8 +113,12 @@ impl<const CAPACITY: usize, const LENGHT_SIZE: usize> BidirectionalStack<CAPACIT
             return Err(StackError::Underflow);
         }
 
-        let data_length = self.buffer[self.back_index].into();
-        self.back_index = self.back_index.saturating_add(1);
+        let mut data_length = 0_usize;
+        for _ in 0..LENGTH_SIZE {
+            let x: usize = self.buffer[self.back_index].into();
+            data_length = (data_length << 8) | x;
+            self.back_index = self.back_index.saturating_add(1);
+        }
 
         let mut result = Vec::with_capacity(data_length);
         for _ in 0..data_length {
@@ -144,7 +148,9 @@ impl<const CAPACITY: usize, const LENGHT_SIZE: usize> BidirectionalStack<CAPACIT
     }
 }
 
-impl<const CAPACITY: usize, const LENGHT_SIZE: usize> Default for BidirectionalStack<CAPACITY, LENGHT_SIZE> {
+impl<const CAPACITY: usize, const LENGTH_SIZE: usize> Default
+    for BidirectionalStack<CAPACITY, LENGTH_SIZE>
+{
     fn default() -> Self {
         BidirectionalStack {
             buffer: [0; CAPACITY],
