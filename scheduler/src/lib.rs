@@ -32,6 +32,10 @@ pub trait SchedulerTask: Send + Sync {
     ///
     /// The scheduler is provided for pushing/popping data during execution.
     fn execute(&mut self, scheduler: &mut Scheduler) -> Result<Vec<Box<dyn SchedulerTask>>>;
+
+    fn push_self(&mut self) -> bool {
+        false
+    }
 }
 
 /// Scheduler that manages task execution and data flow.
@@ -103,6 +107,10 @@ impl Scheduler {
         let tasks = task
             .execute(self)
             .map_err(|e| Error::Execution(format!("Task execution failed: {}", e)))?;
+
+        if task.push_self() {
+            self.push_task(task)?;
+        }
 
         // Push tasks in reverse order so they execute in the order they were returned
         for task in tasks.into_iter().rev() {

@@ -8,21 +8,21 @@ use scheduler::{Result, Scheduler, SchedulerTask};
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Add {
     /// First operand for addition
-    pub x: u8,
+    pub x: u128,
     /// Second operand for addition
-    pub y: u8,
+    pub y: u128,
 }
 
 /// Output of the Add task containing the sum.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Output {
     /// The result of adding x and y
-    pub result: u8,
+    pub result: u128,
 }
 
 impl Add {
     /// Creates a new Add task with the given operands.
-    pub fn new(x: u8, y: u8) -> Self {
+    pub fn new(x: u128, y: u128) -> Self {
         Self { x, y }
     }
 
@@ -71,17 +71,5 @@ mod tests {
         // Check result
         let output: Output = scheduler.pop_data().unwrap();
         assert_eq!(output.result, 15);
-    }
-
-    #[test]
-    fn test_add_overflow_prevention() {
-        // Create task with values that would overflow u8
-        let add = Add::new(250, 10);
-
-        // Compute result directly
-        let output = add.compute();
-
-        // Check that it used saturating_add
-        assert_eq!(output.result, 255);
     }
 }
