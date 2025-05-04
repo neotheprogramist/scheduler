@@ -18,13 +18,13 @@ pub enum StackError {
 }
 
 #[derive(Clone, Debug)]
-pub struct BidirectionalStack<const CAPACITY: usize> {
+pub struct BidirectionalStack<const CAPACITY: usize, const LENGHT_SIZE: usize> {
     front_index: usize,
     back_index: usize,
     buffer: [u8; CAPACITY],
 }
 
-impl<const CAPACITY: usize> BidirectionalStack<CAPACITY> {
+impl<const CAPACITY: usize, const LENGHT_SIZE: usize> BidirectionalStack<CAPACITY, LENGHT_SIZE> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -45,10 +45,6 @@ impl<const CAPACITY: usize> BidirectionalStack<CAPACITY> {
     pub fn push_front(&mut self, data: &[u8]) -> Result<(), StackError> {
         let data_length = data.len();
 
-        if data_length > u8::MAX as usize {
-            return Err(StackError::DataTooLarge);
-        }
-
         if !self.has_capacity_for(data_length) {
             return Err(StackError::InsufficientCapacity);
         }
@@ -58,8 +54,10 @@ impl<const CAPACITY: usize> BidirectionalStack<CAPACITY> {
             self.front_index = self.front_index.saturating_add(1);
         }
 
-        self.buffer[self.front_index] = data_length.try_into()?;
-        self.front_index = self.front_index.saturating_add(1);
+        for i in 0..LENGHT_SIZE {
+            self.buffer[self.front_index] = ((data_length >> i * 8) & 0xFF).try_into()?;
+            self.front_index = self.front_index.saturating_add(1);
+        }
 
         Ok(())
     }
@@ -69,6 +67,12 @@ impl<const CAPACITY: usize> BidirectionalStack<CAPACITY> {
             return Err(StackError::Underflow);
         }
 
+        let mut data_length = 0_usize;
+        for _ in 0..LENGHT_SIZE {
+            self.front_index = self.front_index.saturating_add(1);
+            let x: usize = self.buffer[self.front_index].into();
+            data_length = (data_length << 8) | x;
+        }
         self.front_index = self.front_index.saturating_sub(1);
         let data_length = self.buffer[self.front_index].into();
 
@@ -140,7 +144,7 @@ impl<const CAPACITY: usize> BidirectionalStack<CAPACITY> {
     }
 }
 
-impl<const CAPACITY: usize> Default for BidirectionalStack<CAPACITY> {
+impl<const CAPACITY: usize, const LENGHT_SIZE: usize> Default for BidirectionalStack<CAPACITY, LENGHT_SIZE> {
     fn default() -> Self {
         BidirectionalStack {
             buffer: [0; CAPACITY],
@@ -156,7 +160,7 @@ mod tests {
 
     #[test]
     fn test_push_pop_front() {
-        let mut stack = BidirectionalStack::<10>::new();
+        let mut stack = BidirectionalStack::<10, 1>::new();
         assert!(stack.is_empty_front());
 
         stack.push_front(&[1, 2, 3]).unwrap();
@@ -170,7 +174,7 @@ mod tests {
 
     #[test]
     fn test_push_pop_back() {
-        let mut stack = BidirectionalStack::<10>::new();
+        let mut stack = BidirectionalStack::<10, 1>::new();
         assert!(stack.is_empty_back());
 
         stack.push_back(&[1, 2, 3]).unwrap();
@@ -183,7 +187,7 @@ mod tests {
 
     #[test]
     fn test_capacity() {
-        let mut stack = BidirectionalStack::<5>::new();
+        let mut stack = BidirectionalStack::<5, 1>::new();
 
         stack.push_front(&[1, 2]).unwrap();
 
@@ -194,7 +198,7 @@ mod tests {
 
     #[test]
     fn test_bidirectional() {
-        let mut stack = BidirectionalStack::<10>::new();
+        let mut stack = BidirectionalStack::<10, 1>::new();
 
         stack.push_front(&[1, 2]).unwrap();
         stack.push_back(&[3, 4]).unwrap();
@@ -208,7 +212,7 @@ mod tests {
 
     #[test]
     fn test_clear() {
-        let mut stack = BidirectionalStack::<10>::new();
+        let mut stack = BidirectionalStack::<10, 1>::new();
 
         stack.push_front(&[1, 2]).unwrap();
         stack.push_back(&[3, 4]).unwrap();

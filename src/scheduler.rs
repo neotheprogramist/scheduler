@@ -21,7 +21,7 @@ pub trait SchedulerTask: Send + Sync {
 pub struct Scheduler {
     /// The stack used for storing tasks and data.
     /// Tasks are stored at the back, data at the front.
-    stack: BidirectionalStack<4096>,
+    stack: BidirectionalStack<65536, 2>,
 }
 
 impl Scheduler {
