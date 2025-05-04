@@ -13,13 +13,6 @@ pub struct Add {
     pub y: u128,
 }
 
-/// Output of the Add task containing the sum.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Output {
-    /// The result of adding x and y
-    pub result: u128,
-}
-
 impl Add {
     /// Creates a new Add task with the given operands.
     pub fn new(x: u128, y: u128) -> Self {
@@ -29,10 +22,8 @@ impl Add {
     /// Performs the addition and returns the result.
     ///
     /// Uses saturating addition to prevent overflow.
-    pub fn compute(&self) -> Output {
-        Output {
-            result: self.x.saturating_add(self.y),
-        }
+    pub fn compute(&self) -> u128 {
+        self.x.saturating_add(self.y)
     }
 }
 
@@ -69,7 +60,7 @@ mod tests {
         assert!(scheduler.is_empty());
 
         // Check result
-        let output: Output = scheduler.pop_data().unwrap();
-        assert_eq!(output.result, 15);
+        let output: u128 = scheduler.pop_data().unwrap();
+        assert_eq!(output, 15);
     }
 }

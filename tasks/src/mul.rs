@@ -2,13 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use scheduler::{Result, Scheduler, SchedulerTask};
 
-use crate::add::{self, Add};
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Output {
-    /// The result of adding x and y
-    pub result: u128,
-}
+use crate::add::Add;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Mul {
@@ -27,7 +21,7 @@ impl Mul {
 impl SchedulerTask for Mul {
     fn execute(&mut self, scheduler: &mut Scheduler) -> Result<Vec<Box<dyn SchedulerTask>>> {
         if self.y == 0 {
-            scheduler.push_data(&Output { result: 0 })?;
+            scheduler.push_data(&0_u128)?;
             Ok(vec![])
         } else {
             Ok(vec![
@@ -59,17 +53,15 @@ impl MulInternal {
 #[typetag::serde]
 impl SchedulerTask for MulInternal {
     fn execute(&mut self, scheduler: &mut Scheduler) -> Result<Vec<Box<dyn SchedulerTask>>> {
-        let add_result: add::Output = scheduler.pop_data()?;
+        let add_result: u128 = scheduler.pop_data()?;
 
         self.counter += 1;
-        self.result = add_result.result;
+        self.result = add_result;
 
         if self.counter < self.y {
             Ok(vec![Box::new(Add::new(self.result, self.x))])
         } else {
-            scheduler.push_data(&Output {
-                result: self.result,
-            })?;
+            scheduler.push_data(&self.result)?;
             Ok(vec![])
         }
     }
@@ -98,7 +90,7 @@ mod tests {
         assert!(scheduler.is_empty());
 
         // Check result
-        let output: Output = scheduler.pop_data().unwrap();
-        assert_eq!(output.result, 55);
+        let output: u128 = scheduler.pop_data().unwrap();
+        assert_eq!(output, 55);
     }
 }
